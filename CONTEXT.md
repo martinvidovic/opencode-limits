@@ -20,6 +20,14 @@ _Avoid_: Progress bar, quota row
 A named reporting period with structured usage totals such as cost, requests, or tokens.
 _Avoid_: Usage row, Zen row
 
+**Provider Load Result**:
+The outcome of loading usage for one connected provider. A successful result contains one Usage Snapshot; a failed result contains a bounded Provider Failure and may retain display-only account context.
+_Avoid_: Provider response, fetch result
+
+**Provider Failure**:
+A provider-neutral, secret-safe reason that a connected provider could not produce a Usage Snapshot. It uses the shared failure taxonomy rather than provider-controlled text or raw exceptions.
+_Avoid_: Error message, provider error
+
 **Quality Gate**:
 The technical checks that every published artifact must pass, whether prerelease or stable.
 _Avoid_: Prerelease checks, stable checks
