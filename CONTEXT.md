@@ -19,3 +19,11 @@ _Avoid_: Progress bar, quota row
 **Period Summary**:
 A named reporting period with structured usage totals such as cost, requests, or tokens.
 _Avoid_: Usage row, Zen row
+
+**Quality Gate**:
+The technical checks that every published artifact must pass, whether prerelease or stable.
+_Avoid_: Prerelease checks, stable checks
+
+**Promotion Gate**:
+The validation and release evidence required in addition to the Quality Gate before promoting a prerelease artifact to stable.
+_Avoid_: Stable quality checks
