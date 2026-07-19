@@ -12,6 +12,10 @@ _Avoid_: Provider plugin, provider package
 A successful Provider Adapter result for one active account. It contains display-only account context, quota meters, and period summaries without provider-specific rendering.
 _Avoid_: Provider response, display rows
 
+**Display-only Account Context**:
+Account email or login plus plan or organization context that may appear in the intentional local popup but must never appear in errors, logs, telemetry, diagnostics, or fixtures derived from live data. It excludes credentials, authorization data, and provider identifiers that are never displayable.
+_Avoid_: Safe account data, public account data
+
 **Quota Meter**:
 A named allowance represented as a fraction used, bounded amount, remaining balance, or unlimited value, optionally with a reset time.
 _Avoid_: Progress bar, quota row
