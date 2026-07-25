@@ -8,10 +8,14 @@ import { createCodexRegistration } from './providers/codex/registration.js'
 import { createCopilotRegistration } from './providers/copilot/registration.js'
 import { createZenRegistration } from './providers/zen/registration.js'
 
+export interface ILimitsOptions {
+  readonly showAccountContext?: boolean
+}
+
 export function createTuiPlugin(loadLimits?: LoadLimits): TuiPluginModule {
   return {
     id: 'opencode-limits',
-    tui: (api) => {
+    tui: (api, options) => {
       const resolvedLoadLimits =
         loadLimits ??
         createLoadLimits({
@@ -32,6 +36,18 @@ export function createTuiPlugin(loadLimits?: LoadLimits): TuiPluginModule {
             namespace: 'palette',
             slashName: 'limits',
             run: async () => {
+              const resolvedOptions = parseOptions(options)
+              if (resolvedOptions === undefined) {
+                api.ui.dialog.setSize('large')
+                api.ui.dialog.replace(() =>
+                  api.ui.DialogAlert({
+                    title: 'Usage limits',
+                    message:
+                      'Invalid opencode-limits configuration. showAccountContext must be a boolean.',
+                  })
+                )
+                return
+              }
               const view = await resolvedLoadLimits({
                 signal: api.lifecycle.signal,
               })
@@ -39,7 +55,7 @@ export function createTuiPlugin(loadLimits?: LoadLimits): TuiPluginModule {
               api.ui.dialog.replace(() =>
                 api.ui.DialogAlert({
                   title: 'Usage limits',
-                  message: renderLimits(view),
+                  message: renderLimits(view, resolvedOptions),
                 })
               )
             },
@@ -52,3 +68,18 @@ export function createTuiPlugin(loadLimits?: LoadLimits): TuiPluginModule {
 }
 
 export default createTuiPlugin()
+
+function parseOptions(options: unknown): ILimitsOptions | undefined {
+  if (options === undefined) return {}
+  if (typeof options !== 'object' || options === null) return undefined
+
+  const { showAccountContext } = options as Record<string, unknown>
+  if (
+    showAccountContext !== undefined &&
+    typeof showAccountContext !== 'boolean'
+  ) {
+    return undefined
+  }
+
+  return showAccountContext === undefined ? {} : { showAccountContext }
+}

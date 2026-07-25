@@ -1,0 +1,37 @@
+name: Provider Adapter proposal
+description: Propose an in-repository usage provider integration.
+title: 'Provider Adapter: '
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not include credentials, raw auth records, response captures, account identities, headers, or query data.
+  - type: input
+    id: provider-ids
+    attributes:
+      label: OpenCode provider IDs
+      description: List the connected provider IDs this adapter will match.
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Usage and account scope
+      description: Describe account states, Display-only Account Context, Quota Meters, and Period Summaries.
+    validations:
+      required: true
+  - type: textarea
+    id: access
+    attributes:
+      label: Credential and request policy
+      description: Describe the read-only credential source, fixed origins, request stages, and bounded failure mappings.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Test and validation plan
+      description: Describe synthetic fixtures, conformance coverage, sanitized live validation, and maintenance fit.
+    validations:
+      required: true

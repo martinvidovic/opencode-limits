@@ -47,4 +47,52 @@ describe('TUI plugin', () => {
       }),
     ])
   })
+
+  it('rejects invalid privacy configuration without loading providers', async () => {
+    let loads = 0
+    const plugin = createTuiPlugin(() => {
+      loads += 1
+      return Promise.resolve({ providers: [] })
+    })
+    let registeredCommand: { run: () => Promise<void> } | undefined
+    const calls: string[] = []
+    const api = {
+      keymap: {
+        registerLayer: ({
+          commands,
+        }: {
+          commands: readonly { run: () => Promise<void> }[]
+        }) => {
+          registeredCommand = commands[0]
+        },
+      },
+      lifecycle: { signal: new AbortController().signal },
+      ui: {
+        DialogAlert: (properties: { title: string; message: string }) =>
+          properties,
+        dialog: {
+          replace: (dialog: () => unknown) =>
+            calls.push(JSON.stringify(dialog())),
+          setSize: (size: string) => calls.push(size),
+        },
+      },
+    }
+
+    await plugin.tui(
+      api as never,
+      { showAccountContext: 'false' },
+      undefined as never
+    )
+    await registeredCommand?.run()
+
+    expect(loads).toBe(0)
+    expect(calls).toEqual([
+      'large',
+      JSON.stringify({
+        title: 'Usage limits',
+        message:
+          'Invalid opencode-limits configuration. showAccountContext must be a boolean.',
+      }),
+    ])
+  })
 })
