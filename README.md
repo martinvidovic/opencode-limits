@@ -4,8 +4,8 @@
 from connected providers.
 
 The planned first release will support Codex, OpenCode Zen, and GitHub Copilot.
-This bootstrap tracer contains only a fixture provider; real provider
-integrations arrive in subsequent vertical tracers.
+The current tracer supports Codex; OpenCode Zen and GitHub Copilot arrive in
+subsequent vertical tracers.
 
 ## Development
 

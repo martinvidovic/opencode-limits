@@ -87,6 +87,45 @@ export interface ProviderDiscovery {
   readonly list: () => Promise<readonly ConnectedProvider[]>
 }
 
+export type CredentialReadResult<Credential> =
+  | { readonly status: 'success'; readonly credential: Credential }
+  | {
+      readonly status: 'failure'
+      readonly failure: ProviderFailure
+      readonly account?: DisplayOnlyAccountContext
+    }
+
+export interface CredentialReader<Credential> {
+  readonly read: (input: {
+    readonly signal: AbortSignal
+  }) => Promise<CredentialReadResult<Credential>>
+}
+
+export type SafeRequestResult =
+  | {
+      readonly status: 'response'
+      readonly statusCode: number
+      readonly json: unknown
+      readonly retryAt?: string
+    }
+  | { readonly status: 'network' }
+
+export interface SafeRequester {
+  readonly requestJson: (input: {
+    readonly path: string
+    readonly headers: Readonly<Record<string, string>>
+    readonly signal: AbortSignal
+  }) => Promise<SafeRequestResult>
+}
+
+export interface ProviderAdapter<Credential> {
+  readonly load: (input: {
+    readonly credential: Credential
+    readonly requester: SafeRequester
+    readonly signal: AbortSignal
+  }) => Promise<ProviderLoadResult>
+}
+
 export interface RegisteredProvider {
   readonly id: string
   readonly providerIds: readonly string[]

@@ -2,23 +2,20 @@ import type { TuiPluginModule } from '@opencode-ai/plugin/tui'
 
 import { createLoadLimits } from './core/load-limits.js'
 import type { LoadLimits } from './core/model.js'
+import { createOpenCodeProviderDiscovery } from './opencode/provider-discovery.js'
 import { renderLimits } from './presentation/render-limits.js'
-import {
-  fixtureProvider,
-  fixtureProviderDiscovery,
-} from './providers/fixture.js'
+import { createCodexRegistration } from './providers/codex/registration.js'
 
-const fixtureLoadLimits = createLoadLimits({
-  discovery: fixtureProviderDiscovery,
-  registrations: [fixtureProvider],
-})
-
-export function createTuiPlugin(
-  loadLimits: LoadLimits = fixtureLoadLimits
-): TuiPluginModule {
+export function createTuiPlugin(loadLimits?: LoadLimits): TuiPluginModule {
   return {
     id: 'opencode-limits',
     tui: (api) => {
+      const resolvedLoadLimits =
+        loadLimits ??
+        createLoadLimits({
+          discovery: createOpenCodeProviderDiscovery(api.client),
+          registrations: [createCodexRegistration()],
+        })
       api.keymap.registerLayer({
         commands: [
           {
@@ -29,7 +26,9 @@ export function createTuiPlugin(
             namespace: 'palette',
             slashName: 'limits',
             run: async () => {
-              const view = await loadLimits({ signal: api.lifecycle.signal })
+              const view = await resolvedLoadLimits({
+                signal: api.lifecycle.signal,
+              })
               api.ui.dialog.setSize('large')
               api.ui.dialog.replace(() =>
                 api.ui.DialogAlert({
