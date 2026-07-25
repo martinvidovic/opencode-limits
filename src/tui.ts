@@ -6,6 +6,7 @@ import { createOpenCodeProviderDiscovery } from './opencode/provider-discovery.j
 import { renderLimits } from './presentation/render-limits.js'
 import { createCodexRegistration } from './providers/codex/registration.js'
 import { createCopilotRegistration } from './providers/copilot/registration.js'
+import { createZenRegistration } from './providers/zen/registration.js'
 
 export function createTuiPlugin(loadLimits?: LoadLimits): TuiPluginModule {
   return {
@@ -17,6 +18,7 @@ export function createTuiPlugin(loadLimits?: LoadLimits): TuiPluginModule {
           discovery: createOpenCodeProviderDiscovery(api.client),
           registrations: [
             createCodexRegistration(),
+            createZenRegistration(),
             createCopilotRegistration(),
           ],
         })

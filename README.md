@@ -3,9 +3,7 @@
 `opencode-limits` adds a native `/limits` popup to OpenCode for usage limits
 from connected providers.
 
-The planned first release will support Codex, OpenCode Zen, and GitHub Copilot.
-The current tracers support Codex and GitHub Copilot; OpenCode Zen arrives in
-a subsequent vertical tracer.
+The first release supports Codex, OpenCode Zen, and GitHub Copilot.
 
 ## Development
 
