@@ -28,7 +28,11 @@ authority.
 
 A Provider Adapter is an in-repository integration contributed upstream and
 shipped as part of opencode-limits. New Provider Adapters must satisfy the
-project's shared conformance and documentation requirements.
+project's shared conformance and documentation requirements. Before writing
+one, open the [Provider Adapter proposal](https://github.com/martinvidovic/opencode-limits/issues/new?template=provider-adapter.yml)
+and receive maintainer acceptance. The normative
+[Provider Adapter guide](docs/provider-adapters.md) defines the contract,
+fixtures, testing, live-validation evidence, and review checklist.
 
 Once merged, a Provider Adapter is maintained by the project under its
 best-effort support policy. Its original contributor is encouraged but not
