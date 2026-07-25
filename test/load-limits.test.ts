@@ -57,9 +57,11 @@ describe('LoadLimits', () => {
     expect(started).toEqual(['codex', 'zen'])
   })
 
-  it('omits disconnected registrations and isolates unexpected failures', async () => {
+  it('omits disconnected registrations and isolates matching unexpected failures', async () => {
     const loadLimits = createLoadLimits({
-      discovery: { list: () => Promise.resolve([{ id: 'openai' }]) },
+      discovery: {
+        list: () => Promise.resolve([{ id: 'openai' }, { id: 'opencode' }]),
+      },
       registrations: [
         {
           id: 'codex',
@@ -76,7 +78,16 @@ describe('LoadLimits', () => {
 
     await expect(
       loadLimits({ signal: new AbortController().signal })
-    ).resolves.toEqual({ providers: [successfulResult] })
+    ).resolves.toEqual({
+      providers: [
+        successfulResult,
+        {
+          status: 'failure',
+          provider: { id: 'zen', name: 'zen' },
+          failure: { code: 'unavailable' },
+        },
+      ],
+    })
   })
 })
 

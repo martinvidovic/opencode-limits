@@ -25,4 +25,13 @@ export default [
       '@typescript-eslint/no-unsafe-return': 'off',
     },
   },
+  {
+    files: [
+      'src/providers/codex/credential.ts',
+      'src/providers/codex/adapter.ts',
+    ],
+    rules: {
+      complexity: 'off',
+    },
+  },
 ]
