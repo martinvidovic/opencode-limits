@@ -5,6 +5,7 @@ import type { LoadLimits } from './core/model.js'
 import { createOpenCodeProviderDiscovery } from './opencode/provider-discovery.js'
 import { renderLimits } from './presentation/render-limits.js'
 import { createCodexRegistration } from './providers/codex/registration.js'
+import { createCopilotRegistration } from './providers/copilot/registration.js'
 
 export function createTuiPlugin(loadLimits?: LoadLimits): TuiPluginModule {
   return {
@@ -14,7 +15,10 @@ export function createTuiPlugin(loadLimits?: LoadLimits): TuiPluginModule {
         loadLimits ??
         createLoadLimits({
           discovery: createOpenCodeProviderDiscovery(api.client),
-          registrations: [createCodexRegistration()],
+          registrations: [
+            createCodexRegistration(),
+            createCopilotRegistration(),
+          ],
         })
       api.keymap.registerLayer({
         commands: [

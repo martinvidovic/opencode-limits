@@ -4,8 +4,8 @@
 from connected providers.
 
 The planned first release will support Codex, OpenCode Zen, and GitHub Copilot.
-The current tracer supports Codex; OpenCode Zen and GitHub Copilot arrive in
-subsequent vertical tracers.
+The current tracers support Codex and GitHub Copilot; OpenCode Zen arrives in
+a subsequent vertical tracer.
 
 ## Development
 
