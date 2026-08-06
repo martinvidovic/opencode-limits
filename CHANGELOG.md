@@ -6,6 +6,15 @@ Versioning.
 
 ## [Unreleased]
 
+## [0.1.0-rc.2] - 2026-08-06
+
+### Fixed
+
+- Accept compatible Codex quota windows when optional duration or reset metadata
+  is absent.
+- Match OpenCode Zen's account database, token refresh, organization, and usage
+  request behavior.
+
 ## [0.1.0-rc.1] - 2026-07-25
 
 ### Added
