@@ -61,9 +61,45 @@ describe('Codex Provider Adapter', () => {
       headers: {
         'Authorization': 'Bearer credential-canary',
         'ChatGPT-Account-Id': 'account-canary',
-        'User-Agent': 'opencode-limits',
+        'User-Agent': 'codex-cli',
       },
       signal: expect.any(AbortSignal),
+    })
+  })
+
+  it('accepts positional usage windows without optional duration or reset metadata', async () => {
+    await expect(
+      createCodexAdapter().load({
+        credential,
+        requester: response({
+          rate_limit: {
+            primary_window: { used_percent: 25 },
+            secondary_window: { used_percent: 50 },
+          },
+        }),
+        signal: new AbortController().signal,
+      })
+    ).resolves.toEqual({
+      status: 'success',
+      snapshot: {
+        provider: { id: 'codex', name: 'Codex' },
+        account: credential.account,
+        meters: [
+          {
+            kind: 'fraction-used',
+            label: 'Five-hour limit',
+            used: 25,
+            total: 100,
+          },
+          {
+            kind: 'fraction-used',
+            label: 'Weekly limit',
+            used: 50,
+            total: 100,
+          },
+        ],
+        periods: [],
+      },
     })
   })
 

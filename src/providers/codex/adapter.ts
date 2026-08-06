@@ -20,7 +20,7 @@ export function createCodexAdapter(): ProviderAdapter<ICodexCredential> {
           ...(credential.accountId === undefined
             ? {}
             : { 'ChatGPT-Account-Id': credential.accountId }),
-          'User-Agent': 'opencode-limits',
+          'User-Agent': 'codex-cli',
         },
         signal,
       })
@@ -91,17 +91,21 @@ function parseWindows(
   const secondary = parseWindow(value.rate_limit.secondary_window)
   if (primary === undefined || secondary === undefined) return undefined
   const windows = [primary, secondary]
-  const fiveHour = windows.find((window) => window.seconds === 5 * 60 * 60)
-  const weekly = windows.find((window) => window.seconds === 7 * 24 * 60 * 60)
+  const fiveHour =
+    windows.find((window) => window.seconds === 5 * 60 * 60) ??
+    (primary.seconds === undefined ? primary : undefined)
+  const weekly =
+    windows.find((window) => window.seconds === 7 * 24 * 60 * 60) ??
+    (secondary.seconds === undefined ? secondary : undefined)
   return fiveHour === undefined || weekly === undefined
     ? undefined
     : { fiveHour, weekly }
 }
 
 interface IWindow {
-  readonly seconds: number
+  readonly seconds?: number
   readonly usedPercent: number
-  readonly resetAt: number
+  readonly resetAt?: number
 }
 
 function parseWindow(value: unknown): IWindow | undefined {
@@ -110,19 +114,24 @@ function parseWindow(value: unknown): IWindow | undefined {
   const usedPercent = value.used_percent
   const resetAt = value.reset_at
   if (
-    typeof seconds !== 'number' ||
     typeof usedPercent !== 'number' ||
-    typeof resetAt !== 'number' ||
-    !Number.isFinite(seconds) ||
     !Number.isFinite(usedPercent) ||
-    !Number.isFinite(resetAt) ||
     usedPercent < 0 ||
     usedPercent > 100 ||
-    resetAt <= 0
+    (seconds !== undefined &&
+      (typeof seconds !== 'number' || !Number.isFinite(seconds))) ||
+    (resetAt !== undefined &&
+      (typeof resetAt !== 'number' ||
+        !Number.isFinite(resetAt) ||
+        resetAt <= 0))
   ) {
     return undefined
   }
-  return { seconds, usedPercent, resetAt }
+  return {
+    usedPercent,
+    ...(seconds === undefined ? {} : { seconds }),
+    ...(resetAt === undefined ? {} : { resetAt }),
+  }
 }
 
 function meter(label: string, window: IWindow): QuotaMeter {
@@ -131,7 +140,9 @@ function meter(label: string, window: IWindow): QuotaMeter {
     label,
     used: window.usedPercent,
     total: 100,
-    resetAt: new Date(window.resetAt * 1_000).toISOString(),
+    ...(window.resetAt === undefined
+      ? {}
+      : { resetAt: new Date(window.resetAt * 1_000).toISOString() }),
   }
 }
 
