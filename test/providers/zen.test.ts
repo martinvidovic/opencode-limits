@@ -16,17 +16,25 @@ describe('OpenCode Zen Provider Adapter', () => {
     const requester: SafeRequester = {
       requestJson: (input) => {
         requests.push(input)
-        let json: unknown = usageFixture()
+        let json: unknown = usageFixture(1.84, 42, 1_200_000)
         if (input.path === '/api/user') json = { id: 'user-canary' }
-        if (input.path === '/api/orgs/organization-canary') {
-          json = { name: 'Acme Engineering' }
+        if (input.path === '/api/orgs') {
+          json = [
+            { id: 'other-organization', name: 'Other' },
+            { id: 'organization-canary', name: 'Acme Engineering' },
+          ]
+        }
+        if (input.path.includes('since=')) {
+          json = usageFixture(38.2, 1_400, 31_800_000)
         }
         return Promise.resolve({ status: 'response', statusCode: 200, json })
       },
     }
 
     await expect(
-      createZenAdapter().load({
+      createZenAdapter({
+        now: () => new Date('2026-08-06T08:00:00.000Z'),
+      }).load({
         credential,
         requester,
         signal: new AbortController().signal,
@@ -42,14 +50,15 @@ describe('OpenCode Zen Provider Adapter', () => {
         meters: [],
         periods: [
           period('Today', 1.84, 42, 1_200_000),
-          period('30 days', 38.2, 1_400, 31_800_000),
+          period('August', 38.2, 1_400, 31_800_000),
         ],
       },
     })
     expect(requests.map((request) => request.path)).toEqual([
       '/api/user',
-      '/api/orgs/organization-canary',
-      '/api/usage/summary?organization_id=organization-canary',
+      '/api/orgs',
+      '/api/usage/summary?userId=user-canary&range=24h',
+      '/api/usage/summary?userId=user-canary&since=2026-08-01T00%3A00%3A00.000Z',
     ])
     expect(requests).toEqual(
       requests.map((request) => ({
@@ -57,6 +66,7 @@ describe('OpenCode Zen Provider Adapter', () => {
         headers: {
           'Authorization': 'Bearer credential-canary',
           'User-Agent': 'opencode-limits',
+          'x-org-id': 'organization-canary',
         },
         signal: expect.any(AbortSignal),
       }))
@@ -71,7 +81,7 @@ describe('OpenCode Zen Provider Adapter', () => {
         credential,
         requester: response(
           { id: 'user-canary' },
-          { name: 'Acme Engineering' },
+          [{ id: 'organization-canary', name: 'Acme Engineering' }],
           {}
         ),
         signal: new AbortController().signal,
@@ -83,7 +93,7 @@ describe('OpenCode Zen Provider Adapter', () => {
     await expect(
       adapter.load({
         credential,
-        requester: response({ ignored: 'provider-text-canary' }, {}, {}, 401),
+        requester: response({ ignored: 'provider-text-canary' }, [], {}, 401),
         signal: new AbortController().signal,
       })
     ).resolves.toEqual({
@@ -127,7 +137,7 @@ function response(
   usage: unknown,
   statusCode = 200
 ): SafeRequester {
-  const values = [user, organization, usage]
+  const values = [user, organization, usage, usage]
   let index = 0
   return {
     requestJson: () => {
@@ -149,9 +159,14 @@ function period(label: string, cost: number, requests: number, tokens: number) {
   }
 }
 
-function usageFixture() {
+function usageFixture(cost: number, requests: number, tokens: number) {
   return {
-    today: { cost: 1.84, requests: 42, tokens: 1_200_000 },
-    thirty_days: { cost: 38.2, requests: 1_400, tokens: 31_800_000 },
+    totalRequests: String(requests),
+    totalInputTokens: String(tokens - 140),
+    totalOutputTokens: '100',
+    totalCacheReadTokens: '10',
+    totalCacheWrite5mTokens: '20',
+    totalCacheWrite1hTokens: '10',
+    totalCostMicroCents: String(cost * 10_000_000),
   }
 }

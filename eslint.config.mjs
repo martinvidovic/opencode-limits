@@ -29,6 +29,7 @@ export default [
     files: [
       'src/providers/codex/credential.ts',
       'src/providers/codex/adapter.ts',
+      'src/providers/zen/adapter.ts',
     ],
     rules: {
       complexity: 'off',

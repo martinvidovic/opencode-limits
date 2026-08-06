@@ -13,12 +13,26 @@ export const zenIdentity: ProviderIdentity = {
   name: 'OpenCode Zen',
 }
 
-export function createZenAdapter(): ProviderAdapter<IZenCredential> {
+interface IZenUsage {
+  readonly totalRequests?: string | number
+  readonly totalInputTokens?: string | number
+  readonly totalOutputTokens?: string | number
+  readonly totalCacheReadTokens?: string | number
+  readonly totalCacheWrite5mTokens?: string | number
+  readonly totalCacheWrite1hTokens?: string | number
+  readonly totalCostMicroCents?: string | number
+}
+
+export function createZenAdapter(
+  input: { readonly now?: () => Date } = {}
+): ProviderAdapter<IZenCredential> {
+  const now = input.now ?? (() => new Date())
   return {
     load: async ({ credential, requester, signal }) => {
       const headers = {
         'Authorization': `Bearer ${credential.accessToken}`,
         'User-Agent': 'opencode-limits',
+        'x-org-id': credential.organizationId,
       }
       const user = await requester.requestJson({
         path: '/api/user',
@@ -30,9 +44,10 @@ export function createZenAdapter(): ProviderAdapter<IZenCredential> {
       if (user.status !== 'response' || !isUser(user.json)) {
         return failed({ code: 'invalid-response' }, credential)
       }
+      const userData = user.json
 
       const organization = await requester.requestJson({
-        path: `/api/orgs/${encodeURIComponent(credential.organizationId)}`,
+        path: '/api/orgs',
         headers,
         signal,
       })
@@ -42,23 +57,50 @@ export function createZenAdapter(): ProviderAdapter<IZenCredential> {
       if (organization.status !== 'response') {
         return failed({ code: 'invalid-response' }, credential)
       }
-      const organizationData = organization.json
-      if (!isOrganization(organizationData)) {
+      const organizationData = findOrganization(
+        organization.json,
+        credential.organizationId
+      )
+      if (organizationData === undefined) {
         return failed({ code: 'invalid-response' }, credential)
       }
 
-      const usage = await requester.requestJson({
-        path: `/api/usage/summary?organization_id=${encodeURIComponent(credential.organizationId)}`,
-        headers,
-        signal,
-      })
-      const usageFailure = responseFailure(usage)
+      const current = now()
+      const monthStart = new Date(
+        Date.UTC(current.getUTCFullYear(), current.getUTCMonth(), 1)
+      ).toISOString()
+      const usagePath = (query: Record<string, string>): string => {
+        const parameters = new URLSearchParams({
+          userId: userData.id,
+          ...query,
+        })
+        return `/api/usage/summary?${parameters.toString()}`
+      }
+      const [today, month] = await Promise.all([
+        requester.requestJson({
+          path: usagePath({ range: '24h' }),
+          headers,
+          signal,
+        }),
+        requester.requestJson({
+          path: usagePath({ since: monthStart }),
+          headers,
+          signal,
+        }),
+      ])
+      const usageFailure = responseFailure(today) ?? responseFailure(month)
       if (usageFailure !== undefined) return failed(usageFailure, credential)
-      if (usage.status !== 'response')
+      if (today.status !== 'response' || month.status !== 'response') {
         return failed({ code: 'network' }, credential)
-      const periods = parseUsage(usage.json)
-      if (periods === undefined)
+      }
+      const todayPeriod = parseUsage(today.json, 'Today')
+      const monthPeriod = parseUsage(
+        month.json,
+        current.toLocaleString('en-US', { month: 'long', timeZone: 'UTC' })
+      )
+      if (todayPeriod === undefined || monthPeriod === undefined) {
         return failed({ code: 'invalid-response' }, credential)
+      }
 
       return {
         status: 'success',
@@ -69,7 +111,7 @@ export function createZenAdapter(): ProviderAdapter<IZenCredential> {
             planOrOrganization: organizationData.name,
           },
           meters: [],
-          periods,
+          periods: [todayPeriod, monthPeriod],
         },
       }
     },
@@ -104,35 +146,55 @@ function failed(
   }
 }
 
-function isUser(value: unknown): boolean {
+function isUser(value: unknown): value is { readonly id: string } {
   return isRecord(value) && typeof value.id === 'string' && value.id.length > 0
 }
 
-function isOrganization(value: unknown): value is { readonly name: string } {
-  return (
-    isRecord(value) && typeof value.name === 'string' && value.name.length > 0
-  )
-}
-
-function parseUsage(value: unknown): readonly PeriodSummary[] | undefined {
-  if (!isRecord(value)) return undefined
-  const today = parsePeriod(value.today, 'Today')
-  const thirtyDays = parsePeriod(value.thirty_days, '30 days')
-  return today === undefined || thirtyDays === undefined
-    ? undefined
-    : [today, thirtyDays]
-}
-
-function parsePeriod(value: unknown, label: string): PeriodSummary | undefined {
-  if (!isRecord(value)) return undefined
-  const { cost, requests, tokens } = value
-  if (
-    !isNonNegativeNumber(cost) ||
-    !isNonNegativeNumber(requests) ||
-    !isNonNegativeNumber(tokens)
-  ) {
-    return undefined
+function findOrganization(
+  value: unknown,
+  organizationId: string
+): { readonly name: string } | undefined {
+  if (!Array.isArray(value)) return undefined
+  for (const candidate of value) {
+    if (
+      isRecord(candidate) &&
+      candidate.id === organizationId &&
+      typeof candidate.name === 'string' &&
+      candidate.name.length > 0
+    ) {
+      return { name: candidate.name }
+    }
   }
+  return undefined
+}
+
+function parseUsage(value: unknown, label: string): PeriodSummary | undefined {
+  if (!isRecord(value)) return undefined
+  const usage = value as IZenUsage
+  const recognizedValues = [
+    usage.totalRequests,
+    usage.totalInputTokens,
+    usage.totalOutputTokens,
+    usage.totalCacheReadTokens,
+    usage.totalCacheWrite5mTokens,
+    usage.totalCacheWrite1hTokens,
+    usage.totalCostMicroCents,
+  ]
+  if (
+    recognizedValues.every((entry) => entry === undefined) ||
+    recognizedValues.some(
+      (entry) => entry !== undefined && numericValue(entry) === undefined
+    )
+  )
+    return undefined
+  const requests = numericValue(usage.totalRequests) ?? 0
+  const tokens =
+    (numericValue(usage.totalInputTokens) ?? 0) +
+    (numericValue(usage.totalOutputTokens) ?? 0) +
+    (numericValue(usage.totalCacheReadTokens) ?? 0) +
+    (numericValue(usage.totalCacheWrite5mTokens) ?? 0) +
+    (numericValue(usage.totalCacheWrite1hTokens) ?? 0)
+  const cost = (numericValue(usage.totalCostMicroCents) ?? 0) / 10_000_000
   return {
     label,
     values: [
@@ -143,8 +205,10 @@ function parsePeriod(value: unknown, label: string): PeriodSummary | undefined {
   }
 }
 
-function isNonNegativeNumber(value: unknown): value is number {
-  return typeof value === 'number' && Number.isFinite(value) && value >= 0
+function numericValue(value: unknown): number | undefined {
+  if (typeof value !== 'number' && typeof value !== 'string') return undefined
+  const parsed = Number(value)
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

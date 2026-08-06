@@ -33,7 +33,7 @@ describe('OpenCode Zen credential reader', () => {
     })
   })
 
-  it('rejects custom origins and stale tokens without attempting refresh', async () => {
+  it('rejects custom origins', async () => {
     const customOrigin = createZenCredentialReader({
       readActiveAccount: () =>
         Promise.resolve({
@@ -42,17 +42,6 @@ describe('OpenCode Zen credential reader', () => {
           accessToken: 'credential-canary',
           organizationId: 'organization-canary',
         }),
-    })
-    const stale = createZenCredentialReader({
-      readActiveAccount: () =>
-        Promise.resolve({
-          email: 'account@example.test',
-          url: 'https://console.opencode.ai',
-          accessToken: 'credential-canary',
-          tokenExpiry: 100,
-          organizationId: 'organization-canary',
-        }),
-      now: () => 100,
     })
     let isAdapterCalled = false
     const registration = createProviderRegistration({
@@ -81,11 +70,68 @@ describe('OpenCode Zen credential reader', () => {
       failure: { code: 'unavailable' },
     })
     expect(isAdapterCalled).toBe(false)
-    await expect(
-      stale.read({ signal: new AbortController().signal })
-    ).resolves.toEqual({
-      status: 'failure',
-      failure: { code: 'reauthentication-required' },
+  })
+
+  it('refreshes an expired active Console session and persists its tokens', async () => {
+    const persisted: unknown[] = []
+    const reader = createZenCredentialReader({
+      databasePath: '/database-canary',
+      readActiveAccount: () =>
+        Promise.resolve({
+          id: 'account-canary',
+          email: 'account@example.test',
+          url: 'https://console.opencode.ai',
+          accessToken: 'stale-access-canary',
+          refreshToken: 'refresh-canary',
+          tokenExpiry: 100,
+          organizationId: 'organization-canary',
+        }),
+      fetch: (input, init) => {
+        expect(String(input)).toBe(
+          'https://console.opencode.ai/auth/device/token'
+        )
+        expect(init).toMatchObject({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            grant_type: 'refresh_token',
+            refresh_token: 'refresh-canary',
+            client_id: 'opencode-cli',
+          }),
+        })
+        return Promise.resolve(
+          Response.json({
+            access_token: 'fresh-access-canary',
+            refresh_token: 'fresh-refresh-canary',
+            expires_in: 3_600,
+          })
+        )
+      },
+      persistRefreshedToken: (path, accountId, token) => {
+        persisted.push(path, accountId, token)
+        return Promise.resolve()
+      },
+      now: () => 1_000,
     })
+
+    await expect(
+      reader.read({ signal: new AbortController().signal })
+    ).resolves.toEqual({
+      status: 'success',
+      credential: {
+        accessToken: 'fresh-access-canary',
+        organizationId: 'organization-canary',
+        account: { identity: 'account@example.test' },
+      },
+    })
+    expect(persisted).toEqual([
+      '/database-canary',
+      'account-canary',
+      {
+        accessToken: 'fresh-access-canary',
+        refreshToken: 'fresh-refresh-canary',
+        tokenExpiry: 3_601_000,
+      },
+    ])
   })
 })
