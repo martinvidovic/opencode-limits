@@ -15,6 +15,7 @@ export type QuotaMeter =
       readonly used: number
       readonly total: number
       readonly resetAt?: string
+      readonly resetDateOnly?: boolean
     }
   | {
       readonly kind: 'bounded-amount'
@@ -23,6 +24,7 @@ export type QuotaMeter =
       readonly total: number
       readonly unit: string
       readonly resetAt?: string
+      readonly resetDateOnly?: boolean
     }
   | {
       readonly kind: 'remaining-balance'
@@ -30,10 +32,20 @@ export type QuotaMeter =
       readonly remaining: number
       readonly unit: string
       readonly resetAt?: string
+      readonly resetDateOnly?: boolean
     }
   | {
       readonly kind: 'unlimited'
       readonly label: string
+      readonly resetAt?: string
+      readonly resetDateOnly?: boolean
+    }
+  | {
+      readonly kind: 'unavailable'
+      readonly label: string
+      readonly resetAt?: string
+      readonly resetDateOnly?: boolean
+      readonly resetUnknown?: boolean
     }
 
 export interface PeriodSummary {

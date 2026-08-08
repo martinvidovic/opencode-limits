@@ -35,7 +35,7 @@ describe('Codex credential reader', () => {
         accountId: 'account-canary',
         account: {
           identity: 'account@example.test',
-          planOrOrganization: 'ChatGPT plus',
+          planOrOrganization: 'ChatGPT Plus',
         },
       },
     })

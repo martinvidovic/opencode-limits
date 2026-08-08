@@ -126,7 +126,7 @@ describe('OpenCode Zen Provider Adapter', () => {
         ],
       })
     ).toBe(
-      'OPENCODE ZEN\naccount@example.test (Acme Engineering)\n\nToday            Cost: 1.84 USD | Requests: 42 requests | Tokens: 1200000 tokens\n30 days          Cost: 38.2 USD | Requests: 1400 requests | Tokens: 31800000 tokens'
+      'OPENCODE ZEN\nAccount:   account@example.test (Acme Engineering)\n\nToday:     | $1.84 | 42 requests | 1.2M tokens\n30 days:   | $38.20 | 1.4k requests | 31.8M tokens'
     )
   })
 })

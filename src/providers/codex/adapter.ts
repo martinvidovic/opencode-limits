@@ -43,8 +43,20 @@ export function createCodexAdapter(): ProviderAdapter<ICodexCredential> {
             ? {}
             : { account: credential.account }),
           meters: [
-            meter('Five-hour limit', windows.fiveHour),
-            meter('Weekly limit', windows.weekly),
+            windows.fiveHour === undefined
+              ? {
+                  kind: 'unavailable' as const,
+                  label: '5h limit',
+                  resetUnknown: true,
+                }
+              : meter('5h limit', windows.fiveHour),
+            windows.weekly === undefined
+              ? {
+                  kind: 'unavailable' as const,
+                  label: 'Weekly',
+                  resetUnknown: true,
+                }
+              : meter('Weekly', windows.weekly),
           ],
           periods: [],
         },
@@ -83,23 +95,35 @@ function failed(
   }
 }
 
-function parseWindows(
-  value: unknown
-): { readonly fiveHour: IWindow; readonly weekly: IWindow } | undefined {
+function parseWindows(value: unknown):
+  | {
+      readonly fiveHour?: IWindow
+      readonly weekly?: IWindow
+    }
+  | undefined {
   if (!isRecord(value) || !isRecord(value.rate_limit)) return undefined
   const primary = parseWindow(value.rate_limit.primary_window)
   const secondary = parseWindow(value.rate_limit.secondary_window)
-  if (primary === undefined || secondary === undefined) return undefined
-  const windows = [primary, secondary]
+  if (primary === undefined && secondary === undefined) return undefined
+  const windows = [primary, secondary].filter(
+    (window): window is IWindow => window !== undefined
+  )
   const fiveHour =
     windows.find((window) => window.seconds === 5 * 60 * 60) ??
-    (primary.seconds === undefined ? primary : undefined)
+    (primary !== undefined && primary.seconds === undefined
+      ? primary
+      : undefined)
   const weekly =
     windows.find((window) => window.seconds === 7 * 24 * 60 * 60) ??
-    (secondary.seconds === undefined ? secondary : undefined)
-  return fiveHour === undefined || weekly === undefined
+    (secondary !== undefined && secondary.seconds === undefined
+      ? secondary
+      : undefined)
+  return fiveHour === undefined && weekly === undefined
     ? undefined
-    : { fiveHour, weekly }
+    : {
+        ...(fiveHour === undefined ? {} : { fiveHour }),
+        ...(weekly === undefined ? {} : { weekly }),
+      }
 }
 
 interface IWindow {

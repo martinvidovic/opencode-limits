@@ -40,14 +40,14 @@ describe('Codex Provider Adapter', () => {
         meters: [
           {
             kind: 'fraction-used',
-            label: 'Five-hour limit',
+            label: '5h limit',
             used: 25,
             total: 100,
             resetAt: '2026-07-25T14:50:00.000Z',
           },
           {
             kind: 'fraction-used',
-            label: 'Weekly limit',
+            label: 'Weekly',
             used: 50,
             total: 100,
             resetAt: '2026-07-27T14:50:00.000Z',
@@ -87,15 +87,51 @@ describe('Codex Provider Adapter', () => {
         meters: [
           {
             kind: 'fraction-used',
-            label: 'Five-hour limit',
+            label: '5h limit',
             used: 25,
             total: 100,
           },
           {
             kind: 'fraction-used',
-            label: 'Weekly limit',
+            label: 'Weekly',
             used: 50,
             total: 100,
+          },
+        ],
+        periods: [],
+      },
+    })
+  })
+
+  it('accepts a sole weekly primary window when secondary_window is null', async () => {
+    await expect(
+      createCodexAdapter().load({
+        credential,
+        requester: response({
+          rate_limit: {
+            primary_window: {
+              used_percent: 98,
+              limit_window_seconds: 604_800,
+              reset_at: 1_785_163_800,
+            },
+            secondary_window: null,
+          },
+        }),
+        signal: new AbortController().signal,
+      })
+    ).resolves.toEqual({
+      status: 'success',
+      snapshot: {
+        provider: { id: 'codex', name: 'Codex' },
+        account: credential.account,
+        meters: [
+          { kind: 'unavailable', label: '5h limit', resetUnknown: true },
+          {
+            kind: 'fraction-used',
+            label: 'Weekly',
+            used: 98,
+            total: 100,
+            resetAt: '2026-07-27T14:50:00.000Z',
           },
         ],
         periods: [],

@@ -137,7 +137,11 @@ function decodeAccountContext(
         : undefined
     return {
       identity,
-      ...(plan === undefined ? {} : { planOrOrganization: `ChatGPT ${plan}` }),
+      ...(plan === undefined
+        ? {}
+        : {
+            planOrOrganization: `ChatGPT ${plan.charAt(0).toUpperCase()}${plan.slice(1)}`,
+          }),
     }
   } catch {
     return undefined

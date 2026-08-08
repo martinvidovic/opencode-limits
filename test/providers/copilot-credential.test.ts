@@ -5,15 +5,16 @@ import { describe, expect, it } from 'vitest'
 import { createCopilotCredentialReader } from '../../src/providers/copilot/credential.js'
 
 describe('GitHub Copilot credential reader', () => {
-  it('reads only the validated GitHub Copilot OAuth record', async () => {
+  it('reads access when present, ignoring expires: 0 like /status-codex', async () => {
     const reader = createCopilotCredentialReader({
       environment: {
         OPENCODE_AUTH_CONTENT: JSON.stringify({
           'github-copilot': {
             type: 'oauth',
             access: 'credential-canary',
+            refresh: 'refresh-canary',
             login: 'octocat',
-            expires: 2_000_000_000_000,
+            expires: 0,
           },
           'openai': { access: 'other-provider-canary' },
         }),
@@ -22,7 +23,6 @@ describe('GitHub Copilot credential reader', () => {
         Promise.reject(
           new Error('environment content should win')
         )) as typeof readFile,
-      now: () => 1_000_000_000_000,
     })
 
     await expect(
@@ -36,7 +36,28 @@ describe('GitHub Copilot credential reader', () => {
     })
   })
 
-  it('maps unsupported and stale auth records to bounded failures', async () => {
+  it('falls back to refresh when access is missing', async () => {
+    const reader = createCopilotCredentialReader({
+      environment: {
+        OPENCODE_AUTH_CONTENT: JSON.stringify({
+          'github-copilot': {
+            type: 'oauth',
+            refresh: 'refresh-canary',
+            expires: 0,
+          },
+        }),
+      },
+    })
+
+    await expect(
+      reader.read({ signal: new AbortController().signal })
+    ).resolves.toEqual({
+      status: 'success',
+      credential: { accessToken: 'refresh-canary' },
+    })
+  })
+
+  it('maps unsupported auth and missing tokens to bounded failures', async () => {
     const unsupported = createCopilotCredentialReader({
       environment: {
         OPENCODE_AUTH_CONTENT: JSON.stringify({
@@ -44,17 +65,15 @@ describe('GitHub Copilot credential reader', () => {
         }),
       },
     })
-    const stale = createCopilotCredentialReader({
+    const missing = createCopilotCredentialReader({
       environment: {
         OPENCODE_AUTH_CONTENT: JSON.stringify({
           'github-copilot': {
             type: 'oauth',
-            access: 'credential-canary',
-            expires: 100,
+            expires: 0,
           },
         }),
       },
-      now: () => 100,
     })
 
     await expect(
@@ -64,7 +83,7 @@ describe('GitHub Copilot credential reader', () => {
       failure: { code: 'unsupported-auth' },
     })
     await expect(
-      stale.read({ signal: new AbortController().signal })
+      missing.read({ signal: new AbortController().signal })
     ).resolves.toEqual({
       status: 'failure',
       failure: { code: 'reauthentication-required' },

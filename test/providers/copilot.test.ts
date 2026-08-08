@@ -9,7 +9,7 @@ const credential = {
 }
 
 describe('GitHub Copilot Provider Adapter', () => {
-  it('normalizes the plan, premium quota, and request balance through one safe request', async () => {
+  it('normalizes quota_snapshots like /status-codex through one safe request', async () => {
     let request: Parameters<SafeRequester['requestJson']>[0] | undefined
     const requester: SafeRequester = {
       requestJson: (input) => {
@@ -24,33 +24,33 @@ describe('GitHub Copilot Provider Adapter', () => {
 
     await expect(
       createCopilotAdapter().load({
-        credential,
+        credential: { accessToken: 'credential-canary' },
         requester,
         signal: new AbortController().signal,
       })
     ).resolves.toEqual({
       status: 'success',
       snapshot: {
-        provider: { id: 'copilot', name: 'GitHub Copilot' },
+        provider: { id: 'copilot', name: 'Copilot' },
         account: {
-          identity: 'octocat',
-          planOrOrganization: 'Copilot pro',
+          identity: 'martinvidovic',
+          planOrOrganization: 'GitHub Copilot Business',
         },
         meters: [
           {
-            kind: 'bounded-amount',
-            label: 'Premium requests',
-            used: 75,
-            total: 300,
-            unit: 'requests',
-            resetAt: '2026-08-01T00:00:00.000Z',
+            kind: 'fraction-used',
+            label: 'Premium',
+            used: 0,
+            total: 100,
           },
           {
-            kind: 'remaining-balance',
-            label: 'Chat requests',
-            remaining: 42,
+            kind: 'bounded-amount',
+            label: 'Requests',
+            used: 0,
+            total: 5000,
             unit: 'requests',
-            resetAt: '2026-08-01T00:00:00.000Z',
+            resetAt: '2026-09-01T00:00:00.000Z',
+            resetDateOnly: true,
           },
         ],
         periods: [],
@@ -60,6 +60,8 @@ describe('GitHub Copilot Provider Adapter', () => {
       path: '/copilot_internal/user',
       headers: {
         'Authorization': 'Bearer credential-canary',
+        'Accept': 'application/vnd.github+json',
+        'X-GitHub-Api-Version': '2022-11-28',
         'User-Agent': 'opencode-limits',
       },
       signal: expect.any(AbortSignal),
@@ -87,7 +89,7 @@ describe('GitHub Copilot Provider Adapter', () => {
       })
     ).resolves.toEqual({
       status: 'failure',
-      provider: { id: 'copilot', name: 'GitHub Copilot' },
+      provider: { id: 'copilot', name: 'Copilot' },
       account: credential.account,
       failure: { code: 'reauthentication-required' },
     })
@@ -103,13 +105,19 @@ function response(json: unknown, statusCode = 200): SafeRequester {
 
 function usageFixture() {
   return {
-    copilot_plan: 'pro',
-    quota_reset_date: '2026-08-01T00:00:00.000Z',
-    monthly_quotas: {
-      premium_interactions: { entitlement: 300, remaining: 225 },
-    },
-    limited_user_quotas: {
-      chat: { remaining: 42, reset_date: '2026-08-01T00:00:00.000Z' },
+    login: 'martinvidovic',
+    copilot_plan: 'business',
+    access_type_sku: 'copilot_for_business_seat_quota',
+    quota_reset_date: '2026-09-01',
+    quota_reset_date_utc: '2026-09-01T00:00:00.000Z',
+    quota_snapshots: {
+      premium_interactions: {
+        percent_remaining: 100,
+        quota_remaining: 5000,
+        remaining: 5000,
+        entitlement: 5000,
+        unlimited: false,
+      },
     },
   }
 }

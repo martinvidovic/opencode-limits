@@ -7,8 +7,6 @@ import type {
   DisplayOnlyAccountContext,
 } from '../../core/model.js'
 
-const expiryBufferMs = 60_000
-
 export interface ICopilotCredential {
   readonly accessToken: string
   readonly account?: DisplayOnlyAccountContext
@@ -18,12 +16,10 @@ export function createCopilotCredentialReader(
   input: {
     readonly environment?: NodeJS.ProcessEnv
     readonly readFile?: typeof readFile
-    readonly now?: () => number
   } = {}
 ): CredentialReader<ICopilotCredential> {
   const environment = input.environment ?? process.env
   const read = input.readFile ?? readFile
-  const now = input.now ?? Date.now
 
   return {
     read: async () => {
@@ -49,11 +45,10 @@ export function createCopilotCredentialReader(
       if (record.type !== 'oauth') {
         return { status: 'failure', failure: { code: 'unsupported-auth' } }
       }
-      if (
-        record.access === undefined ||
-        record.expires === undefined ||
-        record.expires <= now() + expiryBufferMs
-      ) {
+
+      // Match /status-codex: use access || refresh and ignore expires (often 0).
+      const accessToken = record.access ?? record.refresh
+      if (accessToken === undefined) {
         return {
           status: 'failure',
           failure: { code: 'reauthentication-required' },
@@ -63,7 +58,7 @@ export function createCopilotCredentialReader(
       return {
         status: 'success',
         credential: {
-          accessToken: record.access,
+          accessToken,
           ...(record.login === undefined
             ? {}
             : { account: { identity: record.login } }),
@@ -83,7 +78,7 @@ function parseCopilotRecord(content: string):
   | {
       readonly type: 'oauth' | 'api'
       readonly access?: string
-      readonly expires?: number
+      readonly refresh?: string
       readonly login?: string
     }
   | undefined {
@@ -96,7 +91,7 @@ function parseCopilotRecord(content: string):
     return {
       type: record.type,
       ...optionalString('access', record.access),
-      ...optionalFiniteNumber('expires', record.expires),
+      ...optionalString('refresh', record.refresh),
       ...optionalString('login', record.login),
     }
   } catch {
@@ -116,15 +111,6 @@ function optionalString<TName extends string>(
 } {
   return typeof value === 'string' && value.length > 0
     ? ({ [name]: value } as { readonly [Key in TName]: string })
-    : {}
-}
-
-function optionalFiniteNumber<TName extends string>(
-  name: TName,
-  value: unknown
-): { readonly [Key in TName]?: number } {
-  return typeof value === 'number' && Number.isFinite(value)
-    ? ({ [name]: value } as { readonly [Key in TName]: number })
     : {}
 }
 
