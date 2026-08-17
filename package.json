@@ -1,6 +1,6 @@
 {
   "name": "opencode-limits",
-  "version": "0.1.0-rc.2",
+  "version": "0.1.0",
   "description": "Native OpenCode TUI popup for connected provider usage limits",
   "license": "MIT",
   "type": "module",
