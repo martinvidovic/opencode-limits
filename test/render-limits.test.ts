@@ -158,6 +158,83 @@ describe('renderLimits', () => {
     )
   })
 
+  it('pads period columns so dividers align across a provider period rows', () => {
+    expect(
+      renderLimits({
+        providers: [
+          {
+            status: 'success',
+            snapshot: {
+              provider: { id: 'zen', name: 'OpenCode Zen' },
+              meters: [],
+              periods: [
+                {
+                  label: 'Today',
+                  values: [
+                    { label: 'Cost', value: 1.62, unit: 'USD' },
+                    { label: 'Requests', value: 35, unit: 'requests' },
+                    { label: 'Tokens', value: 1_900_000, unit: 'tokens' },
+                  ],
+                },
+                {
+                  label: 'August',
+                  values: [
+                    { label: 'Cost', value: 9.95, unit: 'USD' },
+                    { label: 'Requests', value: 265, unit: 'requests' },
+                    { label: 'Tokens', value: 16_600_000, unit: 'tokens' },
+                  ],
+                },
+              ],
+            },
+          },
+        ],
+      })
+    ).toBe(
+      [
+        'OPENCODE ZEN',
+        '',
+        'Today:     | $1.62 | 35 requests  | 1.9M tokens',
+        'August:    | $9.95 | 265 requests | 16.6M tokens',
+      ].join('\n')
+    )
+  })
+
+  it('aligns period columns when rows have different value counts', () => {
+    expect(
+      renderLimits({
+        providers: [
+          {
+            status: 'success',
+            snapshot: {
+              provider: { id: 'zen', name: 'OpenCode Zen' },
+              meters: [],
+              periods: [
+                {
+                  label: 'Today',
+                  values: [
+                    { label: 'Cost', value: 12.5, unit: 'USD' },
+                    { label: 'Requests', value: 1200, unit: 'requests' },
+                  ],
+                },
+                {
+                  label: 'August',
+                  values: [{ label: 'Cost', value: 9.95, unit: 'USD' }],
+                },
+              ],
+            },
+          },
+        ],
+      })
+    ).toBe(
+      [
+        'OPENCODE ZEN',
+        '',
+        'Today:     | $12.50 | 1.2k requests',
+        'August:    | $9.95',
+      ].join('\n')
+    )
+  })
+
   it('matches status-codex Copilot premium, requests, and date-only reset', () => {
     expect(
       renderLimits({

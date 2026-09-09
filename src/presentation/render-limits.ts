@@ -54,9 +54,7 @@ function renderProvider(
     lines.push(...meterLines)
     hasPreviousReset = meterHasResetLine(meter)
   }
-  for (const period of snapshot.periods) {
-    lines.push(formatPeriod(period))
-  }
+  lines.push(...formatPeriods(snapshot.periods))
 
   return lines.join('\n')
 }
@@ -123,9 +121,27 @@ function formatMeterValue(meter: QuotaMeter): string {
   }
 }
 
-function formatPeriod(period: PeriodSummary): string {
-  const values = period.values.map(formatPeriodValue).join(' | ')
-  return `${`${period.label}:`.padEnd(10)} | ${values}`
+function formatPeriods(periods: readonly PeriodSummary[]): string[] {
+  const rows = periods.map((period) => period.values.map(formatPeriodValue))
+  const columnWidths: number[] = []
+  for (const row of rows) {
+    for (const [column, cell] of row.entries()) {
+      columnWidths[column] = Math.max(columnWidths[column] ?? 0, cell.length)
+    }
+  }
+
+  return periods.map((period, index) => {
+    const row = rows[index] ?? []
+    // The trailing cell stays unpadded so rows carry no trailing whitespace.
+    const values = row
+      .map((cell, column) =>
+        column === row.length - 1
+          ? cell
+          : cell.padEnd(columnWidths[column] ?? 0)
+      )
+      .join(' | ')
+    return `${`${period.label}:`.padEnd(10)} | ${values}`
+  })
 }
 
 function formatPeriodValue(value: PeriodSummary['values'][number]): string {
