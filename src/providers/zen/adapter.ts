@@ -8,6 +8,8 @@ import type {
 } from '../../core/model.js'
 import type { IZenCredential } from './credential.js'
 
+const MICRO_CENTS_PER_DOLLAR = 100_000_000
+
 export const zenIdentity: ProviderIdentity = {
   id: 'opencode-zen',
   name: 'OpenCode Zen',
@@ -194,7 +196,8 @@ function parseUsage(value: unknown, label: string): PeriodSummary | undefined {
     (numericValue(usage.totalCacheReadTokens) ?? 0) +
     (numericValue(usage.totalCacheWrite5mTokens) ?? 0) +
     (numericValue(usage.totalCacheWrite1hTokens) ?? 0)
-  const cost = (numericValue(usage.totalCostMicroCents) ?? 0) / 10_000_000
+  const cost =
+    (numericValue(usage.totalCostMicroCents) ?? 0) / MICRO_CENTS_PER_DOLLAR
   return {
     label,
     values: [

@@ -73,6 +73,46 @@ describe('OpenCode Zen Provider Adapter', () => {
     )
   })
 
+  it('converts micro-cents to dollars', async () => {
+    const requester: SafeRequester = {
+      requestJson: (input) => {
+        let json: unknown = { totalCostMicroCents: '41000000' }
+        if (input.path === '/api/user') json = { id: 'user-canary' }
+        if (input.path === '/api/orgs') {
+          json = [{ id: 'organization-canary', name: 'Acme Engineering' }]
+        }
+        if (input.path.includes('since=')) {
+          json = { totalCostMicroCents: '287000000' }
+        }
+        return Promise.resolve({ status: 'response', statusCode: 200, json })
+      },
+    }
+
+    const result = await createZenAdapter({
+      now: () => new Date('2026-08-06T08:00:00.000Z'),
+    }).load({
+      credential,
+      requester,
+      signal: new AbortController().signal,
+    })
+
+    expect(result).toEqual({
+      status: 'success',
+      snapshot: {
+        provider: { id: 'opencode-zen', name: 'OpenCode Zen' },
+        account: {
+          identity: 'account@example.test',
+          planOrOrganization: 'Acme Engineering',
+        },
+        meters: [],
+        periods: [period('Today', 0.41, 0, 0), period('August', 2.87, 0, 0)],
+      },
+    })
+    expect(renderLimits({ providers: [result] })).toBe(
+      'OPENCODE ZEN\nAccount:   account@example.test (Acme Engineering)\n\nToday:     | $0.41 | 0 requests | 0 tokens\nAugust:    | $2.87 | 0 requests | 0 tokens'
+    )
+  })
+
   it('maps malformed payloads and provider statuses to bounded failures', async () => {
     const adapter = createZenAdapter()
 
@@ -167,6 +207,6 @@ function usageFixture(cost: number, requests: number, tokens: number) {
     totalCacheReadTokens: '10',
     totalCacheWrite5mTokens: '20',
     totalCacheWrite1hTokens: '10',
-    totalCostMicroCents: String(cost * 10_000_000),
+    totalCostMicroCents: String(cost * 100_000_000),
   }
 }

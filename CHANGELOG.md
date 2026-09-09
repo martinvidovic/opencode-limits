@@ -6,6 +6,11 @@ Versioning.
 
 ## [Unreleased]
 
+### Fixed
+
+- Correct the OpenCode Zen micro-cent conversion, which displayed every usage
+  cost ten times too high — $28.70 where the Zen Console reported $2.87.
+
 ## [0.1.0] - 2026-08-17
 
 ### Added
