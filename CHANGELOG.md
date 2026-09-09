@@ -10,6 +10,8 @@ Versioning.
 
 - Correct the OpenCode Zen micro-cent conversion, which displayed every usage
   cost ten times too high — $28.70 where the Zen Console reported $2.87.
+- Pad period columns so the `|` dividers align across a provider's period rows
+  when cell widths differ, such as OpenCode Zen's Today and calendar-month rows.
 
 ## [0.1.0] - 2026-08-17
 
