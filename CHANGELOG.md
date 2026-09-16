@@ -4,7 +4,7 @@ Notable changes to opencode-limits are recorded here. This project follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and Semantic
 Versioning.
 
-## [Unreleased]
+## [0.1.1-rc.1] - 2026-09-16
 
 ### Fixed
 
@@ -12,6 +12,8 @@ Versioning.
   cost ten times too high — $28.70 where the Zen Console reported $2.87.
 - Pad period columns so the `|` dividers align across a provider's period rows
   when cell widths differ, such as OpenCode Zen's Today and calendar-month rows.
+
+## [Unreleased]
 
 ## [0.1.0] - 2026-08-17
 
