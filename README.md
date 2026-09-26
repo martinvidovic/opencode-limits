@@ -71,7 +71,8 @@ before returning them. opencode-limits never reads OpenCode's database or
 `auth.json`, never writes or refreshes credentials itself, and never sends
 credentials to the CLI.
 
-- **Codex** uses the ChatGPT OAuth login of the OpenAI integration.
+- **Codex** uses the ChatGPT OAuth login of the OpenAI integration, from its
+  browser or headless method.
 - **OpenCode Zen** uses the OpenCode Console login and reports usage for the
   organization selected in that connection.
 - **GitHub Copilot** uses the GitHub.com Copilot login.
@@ -79,7 +80,8 @@ credentials to the CLI.
 These connection modes are not supported and show an unsupported-account
 Provider Failure without sending credentials anywhere:
 
-- OpenAI API keys, including `OPENAI_API_KEY` environment connections.
+- OpenAI API keys, including `OPENAI_API_KEY` environment connections, and any
+  OpenAI OAuth credential not issued by a ChatGPT login method.
 - OpenCode Console service-account API keys and custom Console servers other
   than `https://opencode.ai/console`.
 - GitHub Enterprise Copilot logins and `GITHUB_TOKEN` environment connections.
