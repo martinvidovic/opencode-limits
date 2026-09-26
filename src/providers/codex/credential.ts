@@ -1,11 +1,19 @@
 import {
   nonEmptyString,
   resolveOAuthConnection,
+  unsupportedAuth,
 } from '../../core/connection-credential.js'
 import type {
   CredentialReader,
   DisplayOnlyAccountContext,
 } from '../../core/model.js'
+
+// OpenCode issues ChatGPT OAuth credentials only through these methods; any
+// other OAuth token for the openai integration must not reach chatgpt.com.
+const chatGptMethodIds: ReadonlySet<string> = new Set([
+  'chatgpt-browser',
+  'chatgpt-headless',
+])
 
 export interface ICodexCredential {
   readonly accessToken: string
@@ -25,6 +33,12 @@ export function createCodexCredentialReader(
       const resolved = await resolveOAuthConnection(connection, { now })
       if (resolved.status === 'failure') return resolved
       const { credential } = resolved
+      if (
+        credential.methodID === undefined ||
+        !chatGptMethodIds.has(credential.methodID)
+      ) {
+        return unsupportedAuth
+      }
 
       const accountId = nonEmptyString(credential.metadata?.accountID)
       const account = decodeAccountContext(credential.access)
