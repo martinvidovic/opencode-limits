@@ -44,6 +44,7 @@ describe('Codex credential reader', () => {
       reader.read({
         connection: connectionResolving({
           type: 'oauth',
+          methodID: 'chatgpt-headless',
           access: 'header.e30.signature',
           refresh: 'refresh-canary',
           expires: 2_000_000_000_000,
@@ -55,6 +56,53 @@ describe('Codex credential reader', () => {
       status: 'success',
       credential: { accessToken: 'header.e30.signature' },
     })
+  })
+
+  it.each(['chatgpt-browser', 'chatgpt-headless'])(
+    'accepts the ChatGPT %s OAuth method',
+    async (methodID) => {
+      const reader = createCodexCredentialReader({ now: () => 0 })
+
+      await expect(
+        reader.read({
+          connection: connectionResolving({
+            type: 'oauth',
+            methodID,
+            access: 'header.e30.signature',
+            refresh: 'refresh-canary',
+            expires: 2_000_000_000_000,
+          }),
+          signal,
+        })
+      ).resolves.toEqual({
+        status: 'success',
+        credential: { accessToken: 'header.e30.signature' },
+      })
+    }
+  )
+
+  it('refuses OAuth credentials from any other or a missing method', async () => {
+    const reader = createCodexCredentialReader({ now: () => 0 })
+    const oauth = {
+      type: 'oauth' as const,
+      access: 'other-access-canary',
+      refresh: 'refresh-canary',
+      expires: 2_000_000_000_000,
+    }
+
+    for (const credential of [
+      { ...oauth, methodID: 'device' },
+      { ...oauth, methodID: 'chatgpt' },
+      oauth,
+    ]) {
+      // eslint-disable-next-line no-await-in-loop
+      await expect(
+        reader.read({ connection: connectionResolving(credential), signal })
+      ).resolves.toEqual({
+        status: 'failure',
+        failure: { code: 'unsupported-auth' },
+      })
+    }
   })
 
   it('returns only bounded failures for key, missing, stale, and unresolvable connections', async () => {
@@ -76,6 +124,7 @@ describe('Codex credential reader', () => {
       read(
         connectionResolving({
           type: 'oauth',
+          methodID: 'chatgpt-browser',
           access: 'secret-canary',
           refresh: 'refresh-canary',
           expires: 100,
@@ -89,6 +138,7 @@ describe('Codex credential reader', () => {
       read(
         connectionResolving({
           type: 'oauth',
+          methodID: 'chatgpt-browser',
           access: '',
           refresh: 'refresh-canary',
           expires: 2_000_000_000_000,
