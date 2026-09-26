@@ -64,14 +64,25 @@ export interface UsageSnapshot {
   readonly periods: readonly PeriodSummary[]
 }
 
-export type ProviderFailureCode =
-  | 'unsupported-auth'
-  | 'reauthentication-required'
-  | 'permission-denied'
-  | 'rate-limited'
-  | 'network'
-  | 'invalid-response'
-  | 'unavailable'
+export const providerFailureCodes = [
+  'unsupported-auth',
+  'reauthentication-required',
+  'permission-denied',
+  'rate-limited',
+  'network',
+  'invalid-response',
+  'unavailable',
+] as const
+
+export type ProviderFailureCode = (typeof providerFailureCodes)[number]
+
+export const quotaMeterKinds = [
+  'fraction-used',
+  'bounded-amount',
+  'remaining-balance',
+  'unlimited',
+  'unavailable',
+] as const satisfies readonly QuotaMeter['kind'][]
 
 export interface ProviderFailure {
   readonly code: ProviderFailureCode
@@ -91,12 +102,29 @@ export interface LimitsView {
   readonly providers: readonly ProviderLoadResult[]
 }
 
-export interface ConnectedProvider {
-  readonly id: string
+export type ConnectionCredential =
+  | {
+      readonly type: 'oauth'
+      readonly methodID?: string
+      readonly access: string
+      readonly refresh: string
+      readonly expires: number
+      readonly metadata?: Readonly<Record<string, unknown>>
+    }
+  | {
+      readonly type: 'key'
+      readonly key: string
+      readonly metadata?: Readonly<Record<string, unknown>>
+    }
+
+export interface ActiveConnection {
+  readonly resolve: () => Promise<ConnectionCredential | undefined>
 }
 
-export interface ProviderDiscovery {
-  readonly list: () => Promise<readonly ConnectedProvider[]>
+export interface IntegrationConnections {
+  readonly active: (
+    integrationId: string
+  ) => Promise<ActiveConnection | undefined>
 }
 
 export type CredentialReadResult<Credential> =
@@ -109,6 +137,7 @@ export type CredentialReadResult<Credential> =
 
 export interface CredentialReader<Credential> {
   readonly read: (input: {
+    readonly connection: ActiveConnection
     readonly signal: AbortSignal
   }) => Promise<CredentialReadResult<Credential>>
 }
@@ -140,8 +169,9 @@ export interface ProviderAdapter<Credential> {
 
 export interface RegisteredProvider {
   readonly id: string
-  readonly providerIds: readonly string[]
+  readonly integrationId: string
   readonly load: (input: {
+    readonly connection: ActiveConnection
     readonly signal: AbortSignal
   }) => Promise<ProviderLoadResult>
 }

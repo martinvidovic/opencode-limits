@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 
 import { createLoadLimits } from '../src/core/load-limits.js'
 import type {
+  ActiveConnection,
+  IntegrationConnections,
   ProviderLoadResult,
   RegisteredProvider,
 } from '../src/core/model.js'
@@ -20,29 +22,15 @@ const successfulResult: ProviderLoadResult = {
 }
 
 describe('LoadLimits', () => {
-  it('loads matching registrations concurrently in stable registry order', async () => {
+  it('loads connected registrations concurrently in stable registry order', async () => {
     const started: string[] = []
     const releases = new Map<string, () => void>()
     const registrations: readonly RegisteredProvider[] = [
-      createRegistration(
-        'codex',
-        ['openai'],
-        started,
-        releases,
-        successfulResult
-      ),
-      createRegistration(
-        'zen',
-        ['opencode'],
-        started,
-        releases,
-        successfulResult
-      ),
+      createRegistration('codex', 'openai', started, releases),
+      createRegistration('zen', 'opencode', started, releases),
     ]
     const loadLimits = createLoadLimits({
-      discovery: {
-        list: () => Promise.resolve([{ id: 'openai' }, { id: 'opencode' }]),
-      },
+      connections: connectionsFor(['openai', 'opencode']),
       registrations,
     })
     const completion = loadLimits({ signal: new AbortController().signal })
@@ -57,28 +45,72 @@ describe('LoadLimits', () => {
     expect(started).toEqual(['codex', 'zen'])
   })
 
-  it('omits disconnected registrations and isolates matching unexpected failures', async () => {
+  it('passes the active connection of the registered integration to its load', async () => {
+    const received: ActiveConnection[] = []
+    const openai: ActiveConnection = {
+      resolve: () => Promise.resolve(undefined),
+    }
     const loadLimits = createLoadLimits({
-      discovery: {
-        list: () => Promise.resolve([{ id: 'openai' }, { id: 'opencode' }]),
+      connections: {
+        active: (integrationId) =>
+          Promise.resolve(integrationId === 'openai' ? openai : undefined),
       },
       registrations: [
         {
           id: 'codex',
-          providerIds: ['openai'],
-          load: () => Promise.resolve(successfulResult),
-        },
-        {
-          id: 'zen',
-          providerIds: ['opencode'],
-          load: () => Promise.reject(new Error('unreachable')),
+          integrationId: 'openai',
+          load: ({ connection }) => {
+            received.push(connection)
+            return Promise.resolve(successfulResult)
+          },
         },
       ],
     })
 
-    await expect(
-      loadLimits({ signal: new AbortController().signal })
-    ).resolves.toEqual({
+    await loadLimits({ signal: new AbortController().signal })
+
+    expect(received).toEqual([openai])
+  })
+
+  it('omits disconnected registrations and isolates unexpected failures', async () => {
+    const loadLimits = createLoadLimits({
+      connections: {
+        active: (integrationId) => {
+          if (integrationId === 'github-copilot') {
+            return Promise.reject(new Error('discovery-canary'))
+          }
+          return Promise.resolve(
+            integrationId === 'unconnected' ? undefined : unresolvable()
+          )
+        },
+      },
+      registrations: [
+        {
+          id: 'codex',
+          integrationId: 'openai',
+          load: () => Promise.resolve(successfulResult),
+        },
+        {
+          id: 'zen',
+          integrationId: 'opencode',
+          load: () => Promise.reject(new Error('load-canary')),
+        },
+        {
+          id: 'copilot',
+          integrationId: 'github-copilot',
+          load: () => Promise.resolve(successfulResult),
+        },
+        {
+          id: 'other',
+          integrationId: 'unconnected',
+          load: () => Promise.resolve(successfulResult),
+        },
+      ],
+    })
+
+    const view = await loadLimits({ signal: new AbortController().signal })
+
+    expect(view).toEqual({
       providers: [
         successfulResult,
         {
@@ -86,25 +118,45 @@ describe('LoadLimits', () => {
           provider: { id: 'zen', name: 'zen' },
           failure: { code: 'unavailable' },
         },
+        {
+          status: 'failure',
+          provider: { id: 'copilot', name: 'copilot' },
+          failure: { code: 'unavailable' },
+        },
       ],
     })
+    expect(JSON.stringify(view)).not.toContain('canary')
   })
 })
 
+function connectionsFor(
+  integrationIds: readonly string[]
+): IntegrationConnections {
+  return {
+    active: (integrationId) =>
+      Promise.resolve(
+        integrationIds.includes(integrationId) ? unresolvable() : undefined
+      ),
+  }
+}
+
+function unresolvable(): ActiveConnection {
+  return { resolve: () => Promise.resolve(undefined) }
+}
+
 function createRegistration(
   id: string,
-  providerIds: readonly string[],
+  integrationId: string,
   started: string[],
-  releases: Map<string, () => void>,
-  result: ProviderLoadResult
+  releases: Map<string, () => void>
 ): RegisteredProvider {
   return {
     id,
-    providerIds,
+    integrationId,
     load: () =>
       new Promise((resolve) => {
         started.push(id)
-        releases.set(id, () => resolve(result))
+        releases.set(id, () => resolve(successfulResult))
       }),
   }
 }

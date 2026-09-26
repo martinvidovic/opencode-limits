@@ -8,31 +8,19 @@ import type {
 
 const separator = '\n\n----------------------------------------------\n\n'
 
-export interface ILimitsRenderOptions {
-  readonly showAccountContext?: boolean
-}
-
-export function renderLimits(
-  view: LimitsView,
-  { showAccountContext = true }: ILimitsRenderOptions = {}
-): string {
+export function renderLimits(view: LimitsView): string {
   if (view.providers.length === 0) {
-    return 'No connected usage providers found.\n\nConnect Codex, OpenCode Zen, or GitHub Copilot, then run /limits again.'
+    return 'No connected usage providers found.\n\nConnect a supported provider with /connect, then run /limits again.'
   }
 
-  return view.providers
-    .map((provider) => renderProvider(provider, showAccountContext))
-    .join(separator)
+  return view.providers.map(renderProvider).join(separator)
 }
 
-function renderProvider(
-  result: ProviderLoadResult,
-  showAccountContext: boolean
-): string {
+function renderProvider(result: ProviderLoadResult): string {
   if (result.status === 'failure') {
     return [
       result.provider.name.toUpperCase(),
-      formatAccount(result.account, showAccountContext),
+      formatAccount(result.account),
       '',
       `! ${formatFailure(result.failure)}`,
     ]
@@ -43,7 +31,7 @@ function renderProvider(
   const { snapshot } = result
   const lines = [
     snapshot.provider.name.toUpperCase(),
-    formatAccount(snapshot.account, showAccountContext),
+    formatAccount(snapshot.account),
     '',
   ].filter((line) => line !== undefined)
 
@@ -67,10 +55,9 @@ function meterHasResetLine(meter: QuotaMeter): boolean {
 function formatAccount(
   account:
     | { readonly identity: string; readonly planOrOrganization?: string }
-    | undefined,
-  showAccountContext: boolean
+    | undefined
 ): string | undefined {
-  if (!showAccountContext || account === undefined) return undefined
+  if (account === undefined) return undefined
   const value =
     account.planOrOrganization === undefined
       ? account.identity

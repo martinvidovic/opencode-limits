@@ -1,85 +1,74 @@
-import type { TuiPluginModule } from '@opencode-ai/plugin/tui'
+import type { Plugin } from '@opencode/plugin/tui'
 
-import { createLoadLimits } from './core/load-limits.js'
-import type { LoadLimits } from './core/model.js'
-import { createOpenCodeProviderDiscovery } from './opencode/provider-discovery.js'
 import { renderLimits } from './presentation/render-limits.js'
-import { createCodexRegistration } from './providers/codex/registration.js'
-import { createCopilotRegistration } from './providers/copilot/registration.js'
-import { createZenRegistration } from './providers/zen/registration.js'
+import { isLimitsRpcOutput, limitsRpc } from './rpc.js'
 
-export interface ILimitsOptions {
-  readonly showAccountContext?: boolean
+const title = 'Usage limits'
+const invalidConfigurationMessage =
+  'Invalid opencode-limits configuration. showAccountContext must be a boolean.'
+const unavailableMessage =
+  'Usage limits are unavailable. Check that the opencode-limits server plugin is loaded, then run /limits again.'
+
+const plugin: Plugin.Definition = {
+  id: 'opencode-limits',
+  setup: (context) => {
+    const lifecycle = new AbortController()
+    // Keymap layers belong to a rendered component, so claim an empty app slot.
+    const releaseSlot = context.ui.slot({
+      append: 'app',
+      render: () => {
+        registerLimitsCommand(context, lifecycle.signal)
+        return null
+      },
+    })
+
+    return () => {
+      lifecycle.abort()
+      releaseSlot()
+    }
+  },
 }
 
-export function createTuiPlugin(loadLimits?: LoadLimits): TuiPluginModule {
-  return {
-    id: 'opencode-limits',
-    tui: (api, options) => {
-      const resolvedLoadLimits =
-        loadLimits ??
-        createLoadLimits({
-          discovery: createOpenCodeProviderDiscovery(api.client),
-          registrations: [
-            createCodexRegistration(),
-            createZenRegistration(),
-            createCopilotRegistration(),
-          ],
-        })
-      api.keymap.registerLayer({
-        commands: [
-          {
-            name: 'opencode-limits.open',
-            title: 'Usage limits',
-            description: 'Show usage limits for connected providers',
-            category: 'Plugin',
-            namespace: 'palette',
-            slashName: 'limits',
-            run: async () => {
-              const resolvedOptions = parseOptions(options)
-              if (resolvedOptions === undefined) {
-                api.ui.dialog.setSize('large')
-                api.ui.dialog.replace(() =>
-                  api.ui.DialogAlert({
-                    title: 'Usage limits',
-                    message:
-                      'Invalid opencode-limits configuration. showAccountContext must be a boolean.',
-                  })
-                )
-                return
-              }
-              const view = await resolvedLoadLimits({
-                signal: api.lifecycle.signal,
-              })
-              api.ui.dialog.setSize('large')
-              api.ui.dialog.replace(() =>
-                api.ui.DialogAlert({
-                  title: 'Usage limits',
-                  message: renderLimits(view, resolvedOptions),
-                })
-              )
-            },
-          },
-        ],
-      })
-      return Promise.resolve()
-    },
-  }
+export default plugin
+
+function registerLimitsCommand(
+  context: Parameters<Plugin.Definition['setup']>[0],
+  signal: AbortSignal
+): void {
+  context.keymap.layer(() => ({
+    mode: 'global',
+    commands: [
+      {
+        id: 'opencode-limits.open',
+        title,
+        description: 'Show usage limits for connected providers',
+        group: 'Plugin',
+        palette: true,
+        slash: { name: 'limits' },
+        run: async () => {
+          let message: string
+          try {
+            const output: unknown = await context.client
+              .rpc(limitsRpc)
+              .load({}, { signal })
+            message = renderOutput(output)
+          } catch {
+            message = unavailableMessage
+          }
+          if (signal.aborted) return
+
+          void context.ui.dialog.alert({ title, message })
+          context.ui.dialog.set({ size: 'large' })
+        },
+      },
+    ],
+  }))
 }
 
-export default createTuiPlugin()
-
-function parseOptions(options: unknown): ILimitsOptions | undefined {
-  if (options === undefined) return {}
-  if (typeof options !== 'object' || options === null) return undefined
-
-  const { showAccountContext } = options as Record<string, unknown>
-  if (
-    showAccountContext !== undefined &&
-    typeof showAccountContext !== 'boolean'
-  ) {
-    return undefined
+function renderOutput(output: unknown): string {
+  if (!isLimitsRpcOutput(output)) return unavailableMessage
+  if (output.status === 'invalid-configuration') {
+    return invalidConfigurationMessage
   }
-
-  return showAccountContext === undefined ? {} : { showAccountContext }
+  return renderLimits(output.view)
 }

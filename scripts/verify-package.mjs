@@ -35,6 +35,8 @@ try {
   const expectedFiles = new Set([
     'LICENSE',
     'README.md',
+    'dist/rpc.d.ts',
+    'dist/rpc.js',
     'dist/server.d.ts',
     'dist/server.js',
     'dist/tui.d.ts',
@@ -72,9 +74,11 @@ try {
   await writeFile(
     join(fixtureDirectory, 'verify.mjs'),
     [
-      "import server from 'opencode-limits/server'",
+      "import server from 'opencode-limits'",
+      "import { limitsRpc } from 'opencode-limits/rpc'",
       "import tui from 'opencode-limits/tui'",
-      "if (server.id !== 'opencode-limits' || tui.id !== 'opencode-limits') throw new Error('Packed exports do not identify the opencode-limits plugin')",
+      "if (server.id !== 'opencode-limits' || tui.id !== 'opencode-limits' || limitsRpc.id !== 'opencode-limits') throw new Error('Packed exports do not identify the opencode-limits plugin')",
+      "if (typeof server.setup !== 'function' || typeof tui.setup !== 'function' || 'server' in server || 'tui' in tui) throw new Error('Packed exports are not v2-only plugin definitions')",
     ].join('\n')
   )
   await execFile(execPath, ['verify.mjs'], { cwd: fixtureDirectory })
@@ -85,7 +89,7 @@ try {
       'utf8'
     )
   )
-  if (manifest.engines.opencode !== '>=1.14.42 <2') {
+  if (manifest.engines.opencode !== '>=2.0.18 <3') {
     throw new Error(
       'Packed manifest has an unexpected OpenCode compatibility range'
     )

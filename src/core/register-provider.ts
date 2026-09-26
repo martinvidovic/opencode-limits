@@ -8,16 +8,16 @@ import type {
 
 export function createProviderRegistration<TCredential>(input: {
   readonly identity: ProviderIdentity
-  readonly providerIds: readonly string[]
+  readonly integrationId: string
   readonly reader: CredentialReader<TCredential>
   readonly adapter: ProviderAdapter<TCredential>
   readonly requester: SafeRequester
 }): RegisteredProvider {
   return {
     id: input.identity.id,
-    providerIds: input.providerIds,
-    load: async ({ signal }) => {
-      const credential = await input.reader.read({ signal })
+    integrationId: input.integrationId,
+    load: async ({ connection, signal }) => {
+      const credential = await input.reader.read({ connection, signal })
       if (credential.status === 'failure') {
         return {
           status: 'failure',

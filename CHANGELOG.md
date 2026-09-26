@@ -15,6 +15,23 @@ Versioning.
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking:** target OpenCode v2 only. The package now exports a v2 server
+  plugin (`.`), CLI plugin (`./tui`), and RPC contract (`./rpc`); the v1
+  `server()`/`tui()` implementation is removed. Configure it under `plugins`,
+  with options in the object form.
+- Resolve Codex credentials from the active OpenAI integration connection on
+  the server. The CLI receives only displayable results over the
+  `opencode-limits` RPC, and `showAccountContext: false` removes account
+  context before it leaves the server.
+
+### Removed
+
+- **Breaking:** OpenCode Zen and GitHub Copilot usage are not shown until their
+  v2 credential sources are restored; their v1 `auth.json` and database readers
+  are removed.
+
 ## [0.1.0] - 2026-08-17
 
 ### Added
