@@ -25,12 +25,15 @@ Versioning.
   the server. The CLI receives only displayable results over the
   `opencode-limits` RPC, and `showAccountContext: false` removes account
   context before it leaves the server.
+- Restore the OpenCode Zen Usage Snapshot from the active OpenCode Console
+  connection and its selected organization. OpenCode owns token refresh and
+  storage; the v1 account-table reader and its direct token writes are removed.
+  Custom Console servers and service-account keys report `unsupported-auth`.
 
 ### Removed
 
-- **Breaking:** OpenCode Zen and GitHub Copilot usage are not shown until their
-  v2 credential sources are restored; their v1 `auth.json` and database readers
-  are removed.
+- **Breaking:** GitHub Copilot usage is not shown until its v2 credential
+  source is restored; its v1 `auth.json` reader is removed.
 
 ## [0.1.0] - 2026-08-17
 

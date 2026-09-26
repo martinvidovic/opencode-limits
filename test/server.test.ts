@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { createCodexRegistration } from '../src/providers/codex/registration.js'
+import { createZenRegistration } from '../src/providers/zen/registration.js'
 import { limitsRpc } from '../src/rpc.js'
 import { createServerPlugin } from '../src/server.js'
 
@@ -97,6 +98,213 @@ describe('server plugin', () => {
     expect(JSON.stringify(output)).not.toMatch(
       /canary|signature|refresh|Bearer/u
     )
+  })
+
+  it('loads the active Console connection into a Zen Usage Snapshot for its selected organization', async () => {
+    const host = createHost({
+      connections: {
+        openai: {
+          info: credentialInfo('cred_openai'),
+          resolveError: new Error('openai refresh failed'),
+        },
+        opencode: {
+          info: credentialInfo('cred_console'),
+          credential: {
+            type: 'oauth',
+            methodID: 'device',
+            access: 'console-access-canary',
+            refresh: 'console-refresh-canary',
+            expires: Date.now() + 3_600_000,
+            metadata: {
+              server: 'https://opencode.ai/console',
+              accountID: 'account-canary',
+              email: 'account@example.test',
+              orgID: 'org_selected',
+              orgName: 'Selected Org',
+            },
+          },
+        },
+      },
+    })
+    const requests: { url: string; headers: Headers }[] = []
+    const plugin = createServerPlugin({
+      registrations: [
+        createCodexRegistration({
+          fetch: () => Promise.reject(new Error('must not request')),
+        }),
+        createZenRegistration({
+          fetch: (url, init) => {
+            const request = {
+              url: String(url),
+              headers: new Headers(init?.headers),
+            }
+            requests.push(request)
+            if (request.url.endsWith('/api/user')) {
+              return Promise.resolve(Response.json({ id: 'user-canary' }))
+            }
+            if (request.url.endsWith('/api/orgs')) {
+              return Promise.resolve(
+                Response.json([
+                  { id: 'org_other', name: 'Other Org' },
+                  { id: 'org_selected', name: 'Selected Org' },
+                ])
+              )
+            }
+            return Promise.resolve(
+              Response.json({
+                totalRequests: 2,
+                totalInputTokens: 10,
+                totalCostMicroCents: 250_000_000,
+              })
+            )
+          },
+        }),
+      ],
+    })
+
+    await plugin.setup(host.context as never)
+    const output = await host.load()
+
+    expect(host.resolved).toEqual(['cred_openai', 'cred_console'])
+    expect(
+      requests.map(({ url }) => new URL(url).origin + new URL(url).pathname)
+    ).toEqual([
+      'https://opencode.ai/console/api/user',
+      'https://opencode.ai/console/api/orgs',
+      'https://opencode.ai/console/api/usage/summary',
+      'https://opencode.ai/console/api/usage/summary',
+    ])
+    expect(requests.map(({ headers }) => headers.get('x-org-id'))).toEqual([
+      'org_selected',
+      'org_selected',
+      'org_selected',
+      'org_selected',
+    ])
+    expect(output).toMatchObject({
+      status: 'loaded',
+      view: {
+        providers: [
+          {
+            status: 'failure',
+            provider: { id: 'codex' },
+            failure: { code: 'reauthentication-required' },
+          },
+          {
+            status: 'success',
+            snapshot: {
+              provider: { id: 'opencode-zen', name: 'OpenCode Zen' },
+              account: {
+                identity: 'account@example.test',
+                planOrOrganization: 'Selected Org',
+              },
+              meters: [],
+              periods: [
+                {
+                  label: 'Today',
+                  values: [
+                    { label: 'Cost', value: 2.5, unit: 'USD' },
+                    { label: 'Requests', value: 2, unit: 'requests' },
+                    { label: 'Tokens', value: 10, unit: 'tokens' },
+                  ],
+                },
+                { label: expect.any(String) as unknown },
+              ],
+            },
+          },
+        ],
+      },
+    })
+    expect(JSON.stringify(output)).not.toMatch(/canary|Bearer/u)
+  })
+
+  it('follows the active Console account and organization after an account switch', async () => {
+    const consoleConnection = (id: string, org: string, email: string) => ({
+      info: credentialInfo(id),
+      credential: {
+        type: 'oauth',
+        methodID: 'device',
+        access: `${id}-access-canary`,
+        refresh: `${id}-refresh-canary`,
+        expires: Date.now() + 3_600_000,
+        metadata: { email, orgID: org, orgName: org },
+      },
+    })
+    const connections: Record<string, ReturnType<typeof consoleConnection>> = {
+      opencode: consoleConnection('cred_work', 'org_work', 'work@example.test'),
+    }
+    const host = createHost({ connections })
+    const seen: { authorization: string | null; org: string | null }[] = []
+    const plugin = createServerPlugin({
+      registrations: [
+        createZenRegistration({
+          fetch: (url, init) => {
+            const headers = new Headers(init?.headers)
+            seen.push({
+              authorization: headers.get('authorization'),
+              org: headers.get('x-org-id'),
+            })
+            if (String(url).endsWith('/api/user')) {
+              return Promise.resolve(Response.json({ id: 'user' }))
+            }
+            if (String(url).endsWith('/api/orgs')) {
+              return Promise.resolve(
+                Response.json([
+                  { id: 'org_work', name: 'Work' },
+                  { id: 'org_home', name: 'Home' },
+                ])
+              )
+            }
+            return Promise.resolve(Response.json({ totalRequests: 1 }))
+          },
+        }),
+      ],
+    })
+
+    await plugin.setup(host.context as never)
+    const first = await host.load()
+    connections.opencode = consoleConnection(
+      'cred_home',
+      'org_home',
+      'home@example.test'
+    )
+    const second = await host.load()
+
+    expect(host.resolved).toEqual(['cred_work', 'cred_home'])
+    expect(new Set(seen.slice(0, 4).map(({ org }) => org))).toEqual(
+      new Set(['org_work'])
+    )
+    expect(new Set(seen.slice(4).map(({ org }) => org))).toEqual(
+      new Set(['org_home'])
+    )
+    expect(seen[4]?.authorization).toBe('Bearer cred_home-access-canary')
+    expect(first).toMatchObject({
+      view: {
+        providers: [
+          {
+            snapshot: {
+              account: {
+                identity: 'work@example.test',
+                planOrOrganization: 'Work',
+              },
+            },
+          },
+        ],
+      },
+    })
+    expect(second).toMatchObject({
+      view: {
+        providers: [
+          {
+            snapshot: {
+              account: {
+                identity: 'home@example.test',
+                planOrOrganization: 'Home',
+              },
+            },
+          },
+        ],
+      },
+    })
   })
 
   it('hides Display-only Account Context before it crosses the RPC boundary', async () => {
