@@ -5,6 +5,12 @@ import type {
 } from '../../core/model.js'
 
 const expiryBufferMs = 60_000
+// OpenCode issues ChatGPT OAuth credentials only through these methods; any
+// other OAuth token for the openai integration must not reach chatgpt.com.
+const chatGptMethodIds: ReadonlySet<string> = new Set([
+  'chatgpt-browser',
+  'chatgpt-headless',
+])
 
 export interface ICodexCredential {
   readonly accessToken: string
@@ -36,7 +42,11 @@ export function createCodexCredentialReader(
           failure: { code: 'reauthentication-required' },
         }
       }
-      if (credential.type !== 'oauth') {
+      if (
+        credential.type !== 'oauth' ||
+        credential.methodID === undefined ||
+        !chatGptMethodIds.has(credential.methodID)
+      ) {
         return { status: 'failure', failure: { code: 'unsupported-auth' } }
       }
       if (

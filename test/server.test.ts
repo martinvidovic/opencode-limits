@@ -99,6 +99,52 @@ describe('server plugin', () => {
     )
   })
 
+  it('refuses a non-ChatGPT OAuth method before any Codex request', async () => {
+    const host = createHost({
+      connections: {
+        openai: {
+          info: credentialInfo('cred_openai'),
+          credential: {
+            type: 'oauth',
+            methodID: 'device',
+            access: 'foreign-access-canary',
+            refresh: 'foreign-refresh-canary',
+            expires: Date.now() + 3_600_000,
+          },
+        },
+      },
+    })
+    let requests = 0
+    const plugin = createServerPlugin({
+      registrations: [
+        createCodexRegistration({
+          fetch: () => {
+            requests += 1
+            return Promise.reject(new Error('must not request'))
+          },
+        }),
+      ],
+    })
+
+    await plugin.setup(host.context as never)
+    const output = await host.load()
+
+    expect(requests).toBe(0)
+    expect(output).toEqual({
+      status: 'loaded',
+      view: {
+        providers: [
+          {
+            status: 'failure',
+            provider: { id: 'codex', name: 'Codex' },
+            failure: { code: 'unsupported-auth' },
+          },
+        ],
+      },
+    })
+    expect(JSON.stringify(output)).not.toContain('canary')
+  })
+
   it('hides Display-only Account Context before it crosses the RPC boundary', async () => {
     const host = createHost({
       options: { showAccountContext: false },
@@ -107,6 +153,7 @@ describe('server plugin', () => {
           info: credentialInfo('cred_openai'),
           credential: {
             type: 'oauth',
+            methodID: 'chatgpt-browser',
             access: accessToken,
             refresh: 'refresh-canary',
             expires: Date.now() + 3_600_000,
@@ -225,6 +272,7 @@ describe('server plugin', () => {
           info: credentialInfo('cred_openai'),
           credential: {
             type: 'oauth',
+            methodID: 'chatgpt-browser',
             access: accessToken,
             refresh: 'refresh-canary',
             expires: Date.now() + 3_600_000,

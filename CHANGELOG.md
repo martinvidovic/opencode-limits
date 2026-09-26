@@ -22,7 +22,9 @@ Versioning.
   `server()`/`tui()` implementation is removed. Configure it under `plugins`,
   with options in the object form.
 - Resolve Codex credentials from the active OpenAI integration connection on
-  the server. The CLI receives only displayable results over the
+  the server, accepting only ChatGPT OAuth logins (`chatgpt-browser` or
+  `chatgpt-headless`); any other method reports `unsupported-auth` before a
+  request. The CLI receives only displayable results over the
   `opencode-limits` RPC, and `showAccountContext: false` removes account
   context before it leaves the server.
 
