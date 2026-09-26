@@ -22,7 +22,7 @@ export function createCodexCredentialReader(
 
   return {
     read: async ({ connection }) => {
-      const resolved = await resolveOAuthConnection(connection, now())
+      const resolved = await resolveOAuthConnection(connection, { now })
       if (resolved.status === 'failure') return resolved
       const { credential } = resolved
 

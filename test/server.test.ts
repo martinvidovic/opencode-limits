@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { createCodexRegistration } from '../src/providers/codex/registration.js'
+import { createCopilotRegistration } from '../src/providers/copilot/registration.js'
 import { createZenRegistration } from '../src/providers/zen/registration.js'
 import { limitsRpc } from '../src/rpc.js'
 import { createServerPlugin } from '../src/server.js'
@@ -305,6 +306,150 @@ describe('server plugin', () => {
         ],
       },
     })
+  })
+
+  it('loads the active GitHub.com Copilot connection with its GitHub token while other providers fail independently', async () => {
+    const host = createHost({
+      connections: {
+        'openai': {
+          info: credentialInfo('cred_openai'),
+          resolveError: new Error('openai-canary'),
+        },
+        'opencode': {
+          info: credentialInfo('cred_console'),
+          credential: { type: 'key', key: 'console-key-canary' },
+        },
+        'github-copilot': {
+          info: credentialInfo('cred_copilot_active'),
+          credential: {
+            type: 'oauth',
+            methodID: 'device',
+            access: 'github-token-canary',
+            refresh: 'github-token-canary',
+            expires: 0,
+          },
+        },
+      },
+    })
+    const requests: { url: string; authorization: string | null }[] = []
+    const plugin = createServerPlugin({
+      registrations: [
+        createCodexRegistration({
+          fetch: () => Promise.reject(new Error('must not request')),
+        }),
+        createZenRegistration({
+          fetch: () => Promise.reject(new Error('must not request')),
+        }),
+        createCopilotRegistration({
+          fetch: (url, init) => {
+            requests.push({
+              url: String(url),
+              authorization: new Headers(init?.headers).get('authorization'),
+            })
+            return Promise.resolve(
+              Response.json({
+                login: 'octocat',
+                copilot_plan: 'individual',
+                quota_reset_date_utc: '2030-01-01T00:00:00.000Z',
+                quota_snapshots: {
+                  premium_interactions: {
+                    entitlement: 300,
+                    remaining: 120,
+                    percent_remaining: 40,
+                    unlimited: false,
+                  },
+                  chat: { unlimited: true },
+                },
+              })
+            )
+          },
+        }),
+      ],
+    })
+
+    await plugin.setup(host.context as never)
+    const output = await host.load()
+
+    expect(host.resolved).toEqual([
+      'cred_openai',
+      'cred_console',
+      'cred_copilot_active',
+    ])
+    expect(requests).toEqual([
+      {
+        url: 'https://api.github.com/copilot_internal/user',
+        authorization: 'Bearer github-token-canary',
+      },
+    ])
+    expect(output).toMatchObject({
+      view: {
+        providers: [
+          { status: 'failure', failure: { code: 'reauthentication-required' } },
+          { status: 'failure', failure: { code: 'unsupported-auth' } },
+          {
+            status: 'success',
+            snapshot: {
+              provider: { id: 'copilot', name: 'Copilot' },
+              account: {
+                identity: 'octocat',
+                planOrOrganization: 'GitHub Copilot Individual',
+              },
+              meters: [
+                { kind: 'fraction-used', label: 'Premium' },
+                {
+                  kind: 'bounded-amount',
+                  label: 'Requests',
+                  used: 180,
+                  total: 300,
+                },
+              ],
+            },
+          },
+        ],
+      },
+    })
+    expect(JSON.stringify(output)).not.toMatch(/canary|Bearer/u)
+  })
+
+  it('queries only the active Copilot account after an account switch', async () => {
+    const copilotConnection = (id: string) => ({
+      info: credentialInfo(id),
+      credential: {
+        type: 'oauth',
+        methodID: 'device',
+        access: `${id}-copilot-session`,
+        refresh: `${id}-github-token`,
+        expires: 1,
+      },
+    })
+    const connections: Record<string, ReturnType<typeof copilotConnection>> = {
+      'github-copilot': copilotConnection('cred_personal'),
+    }
+    const host = createHost({ connections })
+    const authorizations: (string | null)[] = []
+    const plugin = createServerPlugin({
+      registrations: [
+        createCopilotRegistration({
+          fetch: (_url, init) => {
+            authorizations.push(new Headers(init?.headers).get('authorization'))
+            return Promise.resolve(
+              Response.json({ quota_snapshots: { premium_interactions: {} } })
+            )
+          },
+        }),
+      ],
+    })
+
+    await plugin.setup(host.context as never)
+    await host.load()
+    connections['github-copilot'] = copilotConnection('cred_work')
+    await host.load()
+
+    expect(host.resolved).toEqual(['cred_personal', 'cred_work'])
+    expect(authorizations).toEqual([
+      'Bearer cred_personal-github-token',
+      'Bearer cred_work-github-token',
+    ])
   })
 
   it('hides Display-only Account Context before it crosses the RPC boundary', async () => {

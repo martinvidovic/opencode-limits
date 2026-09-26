@@ -29,11 +29,10 @@ Versioning.
   connection and its selected organization. OpenCode owns token refresh and
   storage; the v1 account-table reader and its direct token writes are removed.
   Custom Console servers and service-account keys report `unsupported-auth`.
-
-### Removed
-
-- **Breaking:** GitHub Copilot usage is not shown until its v2 credential
-  source is restored; its v1 `auth.json` reader is removed.
+- Restore the GitHub Copilot Usage Snapshot from the active GitHub.com Copilot
+  connection's GitHub OAuth token. GitHub Enterprise and `GITHUB_TOKEN`
+  environment connections report `unsupported-auth`; the v1 `auth.json` reader
+  is removed.
 
 ## [0.1.0] - 2026-08-17
 

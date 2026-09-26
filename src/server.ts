@@ -9,6 +9,7 @@ import type {
 import { createOpenCodeIntegrationConnections } from './opencode/integration-connections.js'
 import { parseLimitsOptions } from './options.js'
 import { createCodexRegistration } from './providers/codex/registration.js'
+import { createCopilotRegistration } from './providers/copilot/registration.js'
 import { createZenRegistration } from './providers/zen/registration.js'
 import { limitsRpc, type LimitsRpcOutput } from './rpc.js'
 
@@ -26,6 +27,7 @@ export function createServerPlugin(
         registrations: input.registrations ?? [
           createCodexRegistration(),
           createZenRegistration(),
+          createCopilotRegistration(),
         ],
       })
 

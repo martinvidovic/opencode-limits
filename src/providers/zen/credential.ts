@@ -2,6 +2,7 @@ import {
   nonEmptyString,
   reauthenticationRequired,
   resolveOAuthConnection,
+  unsupportedAuth,
 } from '../../core/connection-credential.js'
 import type {
   CredentialReader,
@@ -30,11 +31,11 @@ export function createZenCredentialReader(
   return {
     read: async ({ connection }) => {
       // Service-account keys carry no user or organization for usage reports.
-      const resolved = await resolveOAuthConnection(connection, now())
+      const resolved = await resolveOAuthConnection(connection, { now })
       if (resolved.status === 'failure') return resolved
       const { metadata } = resolved.credential
       if (!isOfficialServer(metadata?.server)) {
-        return { status: 'failure', failure: { code: 'unsupported-auth' } }
+        return unsupportedAuth
       }
 
       const organizationId = nonEmptyString(metadata?.orgID)
