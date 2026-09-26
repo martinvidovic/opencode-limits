@@ -66,13 +66,46 @@ releases as prereleases.
    the default branch.
 6. Run the aggregate local Quality Gate, including the build, tests, package
    contents, and installed-tarball smoke tests.
-7. Complete the manual compatibility smoke tests against OpenCode `1.14.42`
-   and the latest available v1 release.
+7. Complete the [manual compatibility smoke test](#manual-compatibility-smoke-test)
+   against OpenCode `2.0.18` (the oldest supported v2 release) and the latest
+   available v2 release.
 8. For a stable release, complete the Promotion Gate and confirm the diff from
    the validated release-candidate tag contains no functional changes.
 
 Do not publish from an uncommitted worktree, an unpushed commit, or a branch
 that has not reached the default branch.
+
+## Manual compatibility smoke test
+
+Run this against every OpenCode v2 release named in step 7, using the packed
+release tarball installed as a package plugin, never a workspace link. Use a
+throwaway data and config directory (for example, set `XDG_DATA_HOME`,
+`XDG_CONFIG_HOME`, `XDG_CACHE_HOME`, and `XDG_STATE_HOME`) so the smoke test
+cannot migrate or modify everyday OpenCode credentials. Record only text
+outcomes; never copy tokens, account identities, or raw responses into the
+release evidence.
+
+1. Configure `"plugins": ["opencode-limits"]`, start OpenCode, and confirm
+   `/plugins` lists `opencode-limits` as active with its server, TUI, and RPC
+   features and no plugin failure.
+2. Run `/limits` with each supported Provider Adapter connected through
+   `/connect`: Codex (ChatGPT login), OpenCode Zen (OpenCode Console login),
+   and GitHub Copilot (GitHub.com login). Confirm each shows its Usage
+   Snapshot.
+3. Add a second account for one provider, switch the active account with
+   `/connect` or `opencode auth switch`, and confirm `/limits` follows the
+   active account and, for Zen, its selected organization.
+4. Remove or never connect a provider and confirm it is omitted. Connect an
+   unsupported mode (an OpenAI or Copilot environment key, or a Console
+   service-account key) and confirm a bounded Provider Failure that leaves the
+   other providers visible.
+5. Set `{ "package": "opencode-limits", "options": { "showAccountContext": false } }`
+   and confirm account context disappears while usage remains. Set the option
+   to a non-boolean and confirm the invalid-configuration message.
+6. Edit the plugin configuration while OpenCode runs, then remove the plugin,
+   and confirm `/limits` reloads cleanly and then disappears without errors.
+7. Search the OpenCode logs for tokens and account identities from the test
+   accounts and confirm none appear.
 
 ## Bootstrap publication
 

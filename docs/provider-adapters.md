@@ -34,7 +34,7 @@ and `test/providers/codex*.test.ts`. Canonical shared interfaces live in
 
 ## Proposal and implementation
 
-The proposal must state the OpenCode provider IDs, account states, visible
+The proposal must state the OpenCode integration IDs, account states, visible
 Quota Meters and Period Summaries, Display-only Account Context, credential
 source, bound base URLs, request stages, failure mappings, synthetic test plan,
 and sanitized live-validation plan. Never put credentials, raw auth records,

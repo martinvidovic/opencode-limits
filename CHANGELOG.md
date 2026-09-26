@@ -33,6 +33,9 @@ Versioning.
   connection's GitHub OAuth token. GitHub Enterprise and `GITHUB_TOKEN`
   environment connections report `unsupported-auth`; the v1 `auth.json` reader
   is removed.
+- Support OpenCode `>=2.0.18 <3`, tested with `2.0.18`. Installation,
+  configuration, account, and unsupported-connection documentation and the
+  release smoke test now describe OpenCode v2.
 
 ## [0.1.0] - 2026-08-17
 
