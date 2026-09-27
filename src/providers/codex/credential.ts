@@ -1,10 +1,12 @@
+import {
+  nonEmptyString,
+  resolveOAuthConnection,
+} from '../../core/connection-credential.js'
 import type {
-  ConnectionCredential,
   CredentialReader,
   DisplayOnlyAccountContext,
 } from '../../core/model.js'
 
-const expiryBufferMs = 60_000
 // OpenCode issues ChatGPT OAuth credentials only through these methods; any
 // other OAuth token for the openai integration must not reach chatgpt.com.
 const chatGptMethodIds: ReadonlySet<string> = new Set([
@@ -27,47 +29,23 @@ export function createCodexCredentialReader(
 
   return {
     read: async ({ connection }) => {
-      let credential: ConnectionCredential | undefined
-      try {
-        credential = await connection.resolve()
-      } catch {
-        return {
-          status: 'failure',
-          failure: { code: 'reauthentication-required' },
-        }
-      }
-      if (credential === undefined) {
-        return {
-          status: 'failure',
-          failure: { code: 'reauthentication-required' },
-        }
-      }
+      const resolved = await resolveOAuthConnection(connection, now())
+      if (resolved.status === 'failure') return resolved
+      const { credential } = resolved
       if (
-        credential.type !== 'oauth' ||
         credential.methodID === undefined ||
         !chatGptMethodIds.has(credential.methodID)
       ) {
         return { status: 'failure', failure: { code: 'unsupported-auth' } }
       }
-      if (
-        credential.access.length === 0 ||
-        credential.expires <= now() + expiryBufferMs
-      ) {
-        return {
-          status: 'failure',
-          failure: { code: 'reauthentication-required' },
-        }
-      }
 
-      const accountId = credential.metadata?.accountID
+      const accountId = nonEmptyString(credential.metadata?.accountID)
       const account = decodeAccountContext(credential.access)
       return {
         status: 'success',
         credential: {
           accessToken: credential.access,
-          ...(typeof accountId === 'string' && accountId.length > 0
-            ? { accountId }
-            : {}),
+          ...(accountId === undefined ? {} : { accountId }),
           ...(account === undefined ? {} : { account }),
         },
       }

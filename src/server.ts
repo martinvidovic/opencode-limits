@@ -9,6 +9,7 @@ import type {
 import { createOpenCodeIntegrationConnections } from './opencode/integration-connections.js'
 import { parseLimitsOptions } from './options.js'
 import { createCodexRegistration } from './providers/codex/registration.js'
+import { createZenRegistration } from './providers/zen/registration.js'
 import { limitsRpc, type LimitsRpcOutput } from './rpc.js'
 
 export function createServerPlugin(
@@ -22,7 +23,10 @@ export function createServerPlugin(
       const options = parseLimitsOptions(context.options)
       const loadLimits = createLoadLimits({
         connections: createOpenCodeIntegrationConnections(context.integration),
-        registrations: input.registrations ?? [createCodexRegistration()],
+        registrations: input.registrations ?? [
+          createCodexRegistration(),
+          createZenRegistration(),
+        ],
       })
 
       await context.rpc.register(limitsRpc, {

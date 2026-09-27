@@ -19,7 +19,7 @@ or one bounded `ProviderFailure`.
 - Resolve credentials only through the active integration connection passed
   to the reader; the host owns storage and refresh. Do not read OpenCode
   databases or files, and never mutate, log, or expose credentials.
-- Use only the provider's fixed expected origin and the requester's redirect,
+- Use only the provider's fixed expected base URL and the requester's redirect,
   size, cancellation, and error policy.
 - Preserve lifecycle cancellation and let each provider failure remain isolated.
 - Return Display-only Account Context only for intentional popup rendering;
@@ -36,7 +36,7 @@ and `test/providers/codex*.test.ts`. Canonical shared interfaces live in
 
 The proposal must state the OpenCode provider IDs, account states, visible
 Quota Meters and Period Summaries, Display-only Account Context, credential
-source, bound origins, request stages, failure mappings, synthetic test plan,
+source, bound base URLs, request stages, failure mappings, synthetic test plan,
 and sanitized live-validation plan. Never put credentials, raw auth records,
 provider captures, account identities, headers, or query data in the proposal.
 

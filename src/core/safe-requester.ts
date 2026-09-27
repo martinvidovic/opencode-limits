@@ -5,18 +5,25 @@ const defaultMaximumResponseBytes = 1_000_000
 const maximumRedirects = 3
 
 export function createSafeRequester(input: {
-  readonly origin: string
+  readonly baseUrl: string
   readonly fetch?: typeof fetch
   readonly timeoutMs?: number
   readonly maximumResponseBytes?: number
 }): SafeRequester {
   const {
-    origin: originInput,
+    baseUrl,
     fetch: suppliedFetch,
     timeoutMs: configuredTimeoutMs,
     maximumResponseBytes: configuredMaximumResponseBytes,
   } = input
-  const { origin } = new URL(originInput)
+  const base = new URL(baseUrl)
+  const { origin } = base
+  const basePath = base.pathname.replace(/\/+$/u, '')
+  const isBound = (url: URL): boolean =>
+    url.origin === origin &&
+    (basePath === '' ||
+      url.pathname === basePath ||
+      url.pathname.startsWith(`${basePath}/`))
   const performFetch = suppliedFetch ?? fetch
   const timeoutMs = configuredTimeoutMs ?? defaultTimeoutMs
   const maximumResponseBytes =
@@ -26,11 +33,11 @@ export function createSafeRequester(input: {
     requestJson: async ({ path, headers, signal }) => {
       let url: URL
       try {
-        url = new URL(path, origin)
+        url = new URL(`${basePath}${path}`, origin)
       } catch {
         return { status: 'network' }
       }
-      if (url.origin !== origin) return { status: 'network' }
+      if (!isBound(url)) return { status: 'network' }
 
       for (let redirects = 0; redirects <= maximumRedirects; redirects += 1) {
         // eslint-disable-next-line no-await-in-loop
@@ -47,7 +54,7 @@ export function createSafeRequester(input: {
         const { location } = result
         if (location === undefined) return { status: 'network' }
         const nextUrl = new URL(location, url)
-        if (nextUrl.origin !== origin) return { status: 'network' }
+        if (!isBound(nextUrl)) return { status: 'network' }
         url = nextUrl
       }
 
