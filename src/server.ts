@@ -1,8 +1,58 @@
-import type { PluginModule } from '@opencode-ai/plugin'
+import type { Plugin } from '@opencode/plugin'
 
-const plugin: PluginModule = {
-  id: 'opencode-limits',
-  server: () => Promise.resolve({}),
+import { createLoadLimits } from './core/load-limits.js'
+import type {
+  LimitsView,
+  ProviderLoadResult,
+  RegisteredProvider,
+} from './core/model.js'
+import { createOpenCodeIntegrationConnections } from './opencode/integration-connections.js'
+import { parseLimitsOptions } from './options.js'
+import { createCodexRegistration } from './providers/codex/registration.js'
+import { limitsRpc, type LimitsRpcOutput } from './rpc.js'
+
+export function createServerPlugin(
+  input: {
+    readonly registrations?: readonly RegisteredProvider[]
+  } = {}
+): Plugin.Plugin {
+  return {
+    id: 'opencode-limits',
+    setup: async (context) => {
+      const options = parseLimitsOptions(context.options)
+      const loadLimits = createLoadLimits({
+        connections: createOpenCodeIntegrationConnections(context.integration),
+        registrations: input.registrations ?? [createCodexRegistration()],
+      })
+
+      await context.rpc.register(limitsRpc, {
+        load: async (_input, { signal }): Promise<LimitsRpcOutput> => {
+          if (options === undefined) return { status: 'invalid-configuration' }
+          const view = await loadLimits({ signal })
+          return {
+            status: 'loaded',
+            view:
+              options.showAccountContext === false
+                ? withoutAccountContext(view)
+                : view,
+          }
+        },
+      })
+    },
+  }
 }
 
-export default plugin
+export default createServerPlugin()
+
+function withoutAccountContext(view: LimitsView): LimitsView {
+  return {
+    providers: view.providers.map((result): ProviderLoadResult => {
+      if (result.status === 'failure') {
+        const { account: _account, ...rest } = result
+        return rest
+      }
+      const { account: _account, ...snapshot } = result.snapshot
+      return { ...result, snapshot }
+    }),
+  }
+}

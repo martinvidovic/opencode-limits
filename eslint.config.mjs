@@ -18,14 +18,6 @@ export default [
     },
   },
   {
-    files: ['src/tui.ts'],
-    rules: {
-      '@typescript-eslint/no-unsafe-call': 'off',
-      '@typescript-eslint/no-unsafe-member-access': 'off',
-      '@typescript-eslint/no-unsafe-return': 'off',
-    },
-  },
-  {
     files: [
       'src/providers/codex/credential.ts',
       'src/providers/codex/adapter.ts',

@@ -9,14 +9,16 @@ Maintainer acceptance authorizes investigation, not merge.
 ## Contract
 
 An adapter pairs a typed, provider-scoped credential reader with one `load`
-operation. Register it in deterministic display order with a matching OpenCode
-provider ID. Its load operation must use the core `SafeRequester`, validate
+operation. Register it in deterministic display order with the OpenCode
+integration ID whose active connection it reads. Its load operation must use the core `SafeRequester`, validate
 unknown responses, and normalize all successful stages into one `UsageSnapshot`
 or one bounded `ProviderFailure`.
 
 - Keep credential types, origins, endpoints, and provider response shapes in
   the provider directory.
-- Read credentials only. Do not refresh, mutate, log, or expose them.
+- Resolve credentials only through the active integration connection passed
+  to the reader; the host owns storage and refresh. Do not read OpenCode
+  databases or files, and never mutate, log, or expose credentials.
 - Use only the provider's fixed expected origin and the requester's redirect,
   size, cancellation, and error policy.
 - Preserve lifecycle cancellation and let each provider failure remain isolated.

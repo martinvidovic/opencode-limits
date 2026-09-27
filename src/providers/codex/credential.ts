@@ -1,13 +1,16 @@
-import { readFile } from 'node:fs/promises'
-import { homedir } from 'node:os'
-import { join } from 'node:path'
-
 import type {
+  ConnectionCredential,
   CredentialReader,
   DisplayOnlyAccountContext,
 } from '../../core/model.js'
 
 const expiryBufferMs = 60_000
+// OpenCode issues ChatGPT OAuth credentials only through these methods; any
+// other OAuth token for the openai integration must not reach chatgpt.com.
+const chatGptMethodIds: ReadonlySet<string> = new Set([
+  'chatgpt-browser',
+  'chatgpt-headless',
+])
 
 export interface ICodexCredential {
   readonly accessToken: string
@@ -17,43 +20,38 @@ export interface ICodexCredential {
 
 export function createCodexCredentialReader(
   input: {
-    readonly environment?: NodeJS.ProcessEnv
-    readonly readFile?: typeof readFile
     readonly now?: () => number
   } = {}
 ): CredentialReader<ICodexCredential> {
-  const environment = input.environment ?? process.env
-  const read = input.readFile ?? readFile
   const now = input.now ?? Date.now
 
   return {
-    read: async () => {
-      let content: string
+    read: async ({ connection }) => {
+      let credential: ConnectionCredential | undefined
       try {
-        content =
-          environment.OPENCODE_AUTH_CONTENT ??
-          (await read(authPath(environment), 'utf8'))
+        credential = await connection.resolve()
       } catch {
         return {
           status: 'failure',
           failure: { code: 'reauthentication-required' },
         }
       }
-
-      const record = parseOpenAiRecord(content)
-      if (record === undefined) {
+      if (credential === undefined) {
         return {
           status: 'failure',
           failure: { code: 'reauthentication-required' },
         }
       }
-      if (record.type !== 'oauth') {
+      if (
+        credential.type !== 'oauth' ||
+        credential.methodID === undefined ||
+        !chatGptMethodIds.has(credential.methodID)
+      ) {
         return { status: 'failure', failure: { code: 'unsupported-auth' } }
       }
       if (
-        record.access === undefined ||
-        record.expires === undefined ||
-        record.expires <= now() + expiryBufferMs
+        credential.access.length === 0 ||
+        credential.expires <= now() + expiryBufferMs
       ) {
         return {
           status: 'failure',
@@ -61,54 +59,19 @@ export function createCodexCredentialReader(
         }
       }
 
-      const account = decodeAccountContext(record.access)
+      const accountId = credential.metadata?.accountID
+      const account = decodeAccountContext(credential.access)
       return {
         status: 'success',
         credential: {
-          accessToken: record.access,
-          ...(record.accountId === undefined
-            ? {}
-            : { accountId: record.accountId }),
+          accessToken: credential.access,
+          ...(typeof accountId === 'string' && accountId.length > 0
+            ? { accountId }
+            : {}),
           ...(account === undefined ? {} : { account }),
         },
       }
     },
-  }
-}
-
-function authPath(environment: NodeJS.ProcessEnv): string {
-  const dataHome =
-    environment.XDG_DATA_HOME ?? join(homedir(), '.local', 'share')
-  return join(dataHome, 'opencode', 'auth.json')
-}
-
-function parseOpenAiRecord(content: string):
-  | {
-      readonly type: 'oauth' | 'api'
-      readonly access?: string
-      readonly accountId?: string
-      readonly expires?: number
-    }
-  | undefined {
-  try {
-    const parsed = JSON.parse(content) as unknown
-    if (!isRecord(parsed) || !isRecord(parsed.openai)) return undefined
-    const record = parsed.openai
-    if (record.type !== 'oauth' && record.type !== 'api') return undefined
-    return {
-      type: record.type,
-      ...(typeof record.access === 'string' && record.access.length > 0
-        ? { access: record.access }
-        : {}),
-      ...(typeof record.accountId === 'string' && record.accountId.length > 0
-        ? { accountId: record.accountId }
-        : {}),
-      ...(typeof record.expires === 'number' && Number.isFinite(record.expires)
-        ? { expires: record.expires }
-        : {}),
-    }
-  } catch {
-    return undefined
   }
 }
 

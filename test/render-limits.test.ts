@@ -104,27 +104,7 @@ describe('renderLimits', () => {
       'Usage is temporarily unavailable. Try again later.'
     )
     expect(renderLimits({ providers: [] })).toBe(
-      'No connected usage providers found.\n\nConnect Codex, OpenCode Zen, or GitHub Copilot, then run /limits again.'
-    )
-  })
-
-  it('omits display-only account context when requested', () => {
-    const view: LimitsView = {
-      providers: [
-        {
-          status: 'success',
-          snapshot: {
-            provider: { id: 'fixture', name: 'Fixture Provider' },
-            account: { identity: 'fixture@example.test' },
-            meters: [],
-            periods: [],
-          },
-        },
-      ],
-    }
-
-    expect(renderLimits(view, { showAccountContext: false })).toBe(
-      'FIXTURE PROVIDER\n'
+      'No connected usage providers found.\n\nConnect a supported provider with /connect, then run /limits again.'
     )
   })
 

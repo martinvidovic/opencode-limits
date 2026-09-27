@@ -1,29 +1,25 @@
 import type {
+  IntegrationConnections,
   LimitsView,
   LoadLimits,
-  ProviderDiscovery,
   ProviderLoadResult,
   RegisteredProvider,
 } from './model.js'
 
 export function createLoadLimits(input: {
-  readonly discovery: ProviderDiscovery
+  readonly connections: IntegrationConnections
   readonly registrations: readonly RegisteredProvider[]
 }): LoadLimits {
   return async ({ signal }) => {
-    const connectedProviderIds = new Set(
-      (await input.discovery.list()).map((provider) => provider.id)
-    )
-    const matchingRegistrations = input.registrations.filter((registration) =>
-      registration.providerIds.some((providerId) =>
-        connectedProviderIds.has(providerId)
-      )
-    )
-    const providers = await Promise.all(
-      matchingRegistrations.map(
-        async (registration): Promise<ProviderLoadResult> => {
+    const results = await Promise.all(
+      input.registrations.map(
+        async (registration): Promise<ProviderLoadResult | undefined> => {
           try {
-            return await registration.load({ signal })
+            const connection = await input.connections.active(
+              registration.integrationId
+            )
+            if (connection === undefined) return undefined
+            return await registration.load({ connection, signal })
           } catch {
             return {
               status: 'failure',
@@ -33,6 +29,9 @@ export function createLoadLimits(input: {
           }
         }
       )
+    )
+    const providers = results.filter(
+      (result): result is ProviderLoadResult => result !== undefined
     )
 
     return { providers } satisfies LimitsView
