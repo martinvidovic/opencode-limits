@@ -3,7 +3,7 @@
 `opencode-limits` adds a native `/limits` popup to OpenCode for usage limits
 from connected providers.
 
-It supports Codex and OpenCode Zen on OpenCode v2. It uses the active account connections
+It supports Codex, OpenCode Zen, and GitHub Copilot on OpenCode v2. It uses the active account connections
 already in OpenCode, resolved on the server, and never modifies credentials.
 
 ## Install and use
@@ -29,12 +29,11 @@ access, requests, and usage data do not change.
 
 ## Supported providers
 
-| Provider     | OpenCode integration ID | Displayed usage                   |
-| ------------ | ----------------------- | --------------------------------- |
-| Codex        | `openai`                | Five-hour and weekly usage limits |
-| OpenCode Zen | `opencode`              | Today and month-to-date usage     |
-
-GitHub Copilot is not yet available on OpenCode v2.
+| Provider       | OpenCode integration ID | Displayed usage                   |
+| -------------- | ----------------------- | --------------------------------- |
+| Codex          | `openai`                | Five-hour and weekly usage limits |
+| OpenCode Zen   | `opencode`              | Today and month-to-date usage     |
+| GitHub Copilot | `github-copilot`        | Premium and chat request balances |
 
 OpenCode Zen reads the active OpenCode Console connection and reports usage for
 the organization selected in that connection. Only the official Console
@@ -42,6 +41,14 @@ the organization selected in that connection. Only the official Console
 Console servers and service-account API keys show an unsupported-account
 failure. When a token is near expiry, OpenCode refreshes and stores it while
 resolving the connection; opencode-limits never writes credentials.
+
+GitHub Copilot reads the active Copilot connection and queries GitHub.com with
+its GitHub OAuth token. GitHub Enterprise logins and `GITHUB_TOKEN` environment
+connections show an unsupported-account failure instead of being sent to the
+public endpoint.
+
+Each provider uses only its active connection; switch accounts with `/connect`
+or `opencode auth switch`.
 
 Provider endpoints and OpenCode integration connections are compatibility
 surfaces.

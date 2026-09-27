@@ -1,6 +1,7 @@
 import {
   nonEmptyString,
   resolveOAuthConnection,
+  unsupportedAuth,
 } from '../../core/connection-credential.js'
 import type {
   CredentialReader,
@@ -29,14 +30,14 @@ export function createCodexCredentialReader(
 
   return {
     read: async ({ connection }) => {
-      const resolved = await resolveOAuthConnection(connection, now())
+      const resolved = await resolveOAuthConnection(connection, { now })
       if (resolved.status === 'failure') return resolved
       const { credential } = resolved
       if (
         credential.methodID === undefined ||
         !chatGptMethodIds.has(credential.methodID)
       ) {
-        return { status: 'failure', failure: { code: 'unsupported-auth' } }
+        return unsupportedAuth
       }
 
       const accountId = nonEmptyString(credential.metadata?.accountID)
