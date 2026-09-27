@@ -10,8 +10,8 @@ body:
   - type: input
     id: provider-ids
     attributes:
-      label: OpenCode provider IDs
-      description: List the connected provider IDs this adapter will match.
+      label: OpenCode integration IDs
+      description: List the OpenCode v2 integration IDs whose active connection this adapter will read.
     validations:
       required: true
   - type: textarea
@@ -25,7 +25,7 @@ body:
     id: access
     attributes:
       label: Credential and request policy
-      description: Describe the read-only credential source, fixed origins, request stages, and bounded failure mappings.
+      description: Describe the read-only connection credential, fixed base URLs, request stages, and bounded failure mappings.
     validations:
       required: true
   - type: textarea

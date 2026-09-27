@@ -1,7 +1,7 @@
 {
   "name": "opencode-limits",
   "version": "0.1.1-rc.1",
-  "description": "Native OpenCode TUI popup for connected provider usage limits",
+  "description": "Native OpenCode v2 /limits popup for connected provider usage limits",
   "license": "MIT",
   "type": "module",
   "files": [
@@ -36,7 +36,7 @@
     }
   },
   "scripts": {
-    "build": "tsc --project tsconfig.build.json",
+    "build": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\" && tsc --project tsconfig.build.json",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "format": "prettier --write .",
