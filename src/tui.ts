@@ -59,7 +59,6 @@ function registerLimitsCommand(
 
           // The alert settles when the user closes it; nothing waits on that.
           context.ui.dialog.alert({ title, message }).catch(() => undefined)
-          context.ui.dialog.set({ size: 'large' })
         },
       },
     ],

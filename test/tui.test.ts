@@ -11,7 +11,7 @@ interface ICommand {
 }
 
 describe('CLI plugin', () => {
-  it('registers /limits and renders the server RPC result in a large native dialog', async () => {
+  it('registers /limits and renders the server RPC result in a native dialog', async () => {
     const host = createHost(() =>
       Promise.resolve({ status: 'loaded', view: { providers: [] } })
     )
@@ -36,7 +36,6 @@ describe('CLI plugin', () => {
             'No connected usage providers found.\n\nConnect a supported provider with /connect, then run /limits again.',
         },
       },
-      { set: { size: 'large' } },
     ])
   })
 
