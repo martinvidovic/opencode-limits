@@ -6,7 +6,7 @@ This repository uses a single-context domain-doc layout.
 
 Read these files when they exist:
 
-- `CONTEXT.md` at the repository root.
+- `GLOSSARY.md` at the repository root.
 - Relevant ADRs under `docs/adr/`.
 
 Proceed silently when they do not exist. The domain-modeling skill creates them lazily when terminology or durable architectural decisions are resolved.
@@ -15,10 +15,10 @@ Proceed silently when they do not exist. The domain-modeling skill creates them 
 
 ```text
 /
-├── CONTEXT.md
+├── GLOSSARY.md
 ├── docs/
 │   └── adr/
 └── src/
 ```
 
-`CONTEXT.md` is a glossary, not a specification or implementation guide. Use its canonical terms in issue titles, design discussions, code, and tests. Surface any proposed change that contradicts an existing ADR instead of silently overriding it.
+`GLOSSARY.md` is a glossary, not a specification or implementation guide. Use its canonical terms in issue titles, design discussions, code, and tests. Surface any proposed change that contradicts an existing ADR instead of silently overriding it.
