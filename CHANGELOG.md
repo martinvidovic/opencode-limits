@@ -15,6 +15,8 @@ Versioning.
 
 ## [Unreleased]
 
+## [0.2.0-rc.1] - 2026-10-10
+
 ### Fixed
 
 - Derive OpenCode Zen month-to-date usage from daily buckets instead of the
