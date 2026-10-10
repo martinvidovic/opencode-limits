@@ -9,8 +9,9 @@ and never modifies credentials.
 
 ## Install and use
 
-opencode-limits requires OpenCode v2 (`>=2.0.18 <3`; tested with `2.0.18`). It
-does not load in OpenCode v1.
+opencode-limits supports OpenCode v2 only (`>=2.0.18 <3`; tested with
+`2.0.18`). It does not load in OpenCode v1, and the `0.1.x` releases that
+targeted OpenCode v1 are deprecated and unsupported.
 
 Install it as a global package plugin:
 

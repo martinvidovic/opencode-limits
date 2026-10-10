@@ -4,7 +4,8 @@
 
 Security fixes are provided on a best-effort basis for the latest stable
 release and the active prerelease. Older releases may receive fixes at the
-maintainer's discretion.
+maintainer's discretion. The `0.1.x` releases for OpenCode v1 are unsupported
+and receive no fixes.
 
 ## Reporting a vulnerability
 

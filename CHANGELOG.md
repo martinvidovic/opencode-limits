@@ -4,16 +4,14 @@ Notable changes to opencode-limits are recorded here. This project follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and Semantic
 Versioning.
 
-## [0.1.1-rc.1] - 2026-09-16
-
-### Fixed
-
-- Correct the OpenCode Zen micro-cent conversion, which displayed every usage
-  cost ten times too high — $28.70 where the Zen Console reported $2.87.
-- Pad period columns so the `|` dividers align across a provider's period rows
-  when cell widths differ, such as OpenCode Zen's Today and calendar-month rows.
-
 ## [Unreleased]
+
+### Changed
+
+- Support OpenCode v2 only: the `0.1.x` releases for OpenCode v1 are deprecated
+  on npm and unsupported. As a prerelease exception, npm `latest` points to
+  `0.2.0-rc.1` so unversioned installs resolve to the v2 line until `0.2.0`
+  stable.
 
 ## [0.2.0-rc.1] - 2026-10-10
 
@@ -46,6 +44,15 @@ Versioning.
 - Support OpenCode `>=2.0.18 <3`, tested with `2.0.18`. Installation,
   configuration, account, and unsupported-connection documentation and the
   release smoke test now describe OpenCode v2.
+
+## [0.1.1-rc.1] - 2026-09-16
+
+### Fixed
+
+- Correct the OpenCode Zen micro-cent conversion, which displayed every usage
+  cost ten times too high — $28.70 where the Zen Console reported $2.87.
+- Pad period columns so the `|` dividers align across a provider's period rows
+  when cell widths differ, such as OpenCode Zen's Today and calendar-month rows.
 
 ## [0.1.0] - 2026-08-17
 

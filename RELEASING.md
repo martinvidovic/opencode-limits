@@ -15,6 +15,8 @@ publish tokens, and npm provenance are deliberately not part of this workflow.
 - Apply the Promotion Gate before every stable release.
 - Require interactive npm two-factor authentication and disallow publish
   tokens after the initial package publication.
+- Never point a dist-tag at an OpenCode v1 (`0.1.x`) release; the v1 line is
+  unsupported. Bad-release recovery never rolls back to a v1 release.
 - Store npm recovery codes outside the repository.
 
 Manual publication does not produce npm provenance. npm provenance requires a
@@ -44,6 +46,11 @@ starts at 1 for each target version and increases for every functional change.
 Release candidates use the npm `next` dist-tag. Stable releases use `latest`.
 Remove `next` after its release line is promoted, and recreate it when the next
 prerelease line starts.
+
+Exception: as of 2026-10-10, `latest` points to the `0.2.0-rc.1` prerelease so
+that unversioned installs resolve to the supported OpenCode v2 line rather than
+the deprecated v1 releases. Restore the stable-only `latest` policy when
+`0.2.0` stable is published.
 
 ## Changelog and release notes
 

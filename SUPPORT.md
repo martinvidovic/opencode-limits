@@ -8,6 +8,9 @@ documented OpenCode compatibility range. It covers Provider Adapters bundled
 with opencode-limits. Fixes for older releases are provided only at the
 maintainer's discretion.
 
+Only OpenCode v2 is supported. The `0.1.x` releases for OpenCode v1 are
+deprecated and receive no fixes.
+
 Forks, private modifications, and Provider Adapters not shipped by this
 project are outside the support scope.
 
