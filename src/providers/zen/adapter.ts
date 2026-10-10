@@ -70,7 +70,8 @@ export function createZenAdapter(
       const current = now()
       const monthStart = new Date(
         Date.UTC(current.getUTCFullYear(), current.getUTCMonth(), 1)
-      ).toISOString()
+      )
+      const monthStartDate = monthStart.toISOString().slice(0, 10)
       const usagePath = (query: Record<string, string>): string => {
         const parameters = new URLSearchParams({
           userId: userData.id,
@@ -78,6 +79,9 @@ export function createZenAdapter(
         })
         return `/api/usage/summary?${parameters.toString()}`
       }
+      const dailyRange = current.getUTCDate() === 31 ? 'all' : '30d'
+      // On day 31 this can return long histories; the safe requester still
+      // enforces its existing response-size and timeout bounds.
       const [today, month] = await Promise.all([
         requester.requestJson({
           path: usagePath({ range: '24h' }),
@@ -85,7 +89,11 @@ export function createZenAdapter(
           signal,
         }),
         requester.requestJson({
-          path: usagePath({ since: monthStart }),
+          path: `/api/usage/cost-by-day?${new URLSearchParams({
+            userId: userData.id,
+            range: dailyRange,
+            bucket: 'day',
+          }).toString()}`,
           headers,
           signal,
         }),
@@ -96,8 +104,9 @@ export function createZenAdapter(
         return failed({ code: 'network' }, credential)
       }
       const todayPeriod = parseUsage(today.json, 'Today')
-      const monthPeriod = parseUsage(
+      const monthPeriod = parseDailyUsage(
         month.json,
+        monthStartDate,
         current.toLocaleString('en-US', { month: 'long', timeZone: 'UTC' })
       )
       if (todayPeriod === undefined || monthPeriod === undefined) {
@@ -208,8 +217,76 @@ function parseUsage(value: unknown, label: string): PeriodSummary | undefined {
   }
 }
 
+interface IZenDailyUsage {
+  readonly date: string
+  readonly totalRequests: string | number
+  readonly totalTokens: string | number
+  readonly totalCostMicroCents: string | number
+}
+
+function parseDailyUsage(
+  value: unknown,
+  monthStart: string,
+  label: string
+): PeriodSummary | undefined {
+  if (!Array.isArray(value)) return undefined
+  let requests = 0
+  let tokens = 0
+  let costMicroCents = 0
+  for (const entry of value) {
+    if (!isRecord(entry) || !isUtcDate(entry.date)) return undefined
+    const daily = entry as unknown as IZenDailyUsage
+    const dailyRequests = numericValue(daily.totalRequests)
+    const dailyTokens = numericValue(daily.totalTokens)
+    const dailyCost = numericValue(daily.totalCostMicroCents)
+    if (
+      dailyRequests === undefined ||
+      dailyTokens === undefined ||
+      dailyCost === undefined
+    ) {
+      return undefined
+    }
+    if (daily.date >= monthStart) {
+      requests += dailyRequests
+      tokens += dailyTokens
+      costMicroCents += dailyCost
+      if (
+        !Number.isFinite(requests) ||
+        !Number.isFinite(tokens) ||
+        !Number.isFinite(costMicroCents)
+      ) {
+        return undefined
+      }
+    }
+  }
+  return {
+    label,
+    values: [
+      {
+        label: 'Cost',
+        value: costMicroCents / MICRO_CENTS_PER_DOLLAR,
+        unit: 'USD',
+      },
+      { label: 'Requests', value: requests, unit: 'requests' },
+      { label: 'Tokens', value: tokens, unit: 'tokens' },
+    ],
+  }
+}
+
+function isUtcDate(value: unknown): value is string {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/u.test(value)) {
+    return false
+  }
+  const parsed = new Date(`${value}T00:00:00.000Z`)
+  return (
+    !Number.isNaN(parsed.getTime()) &&
+    parsed.toISOString().slice(0, 10) === value
+  )
+}
+
 function numericValue(value: unknown): number | undefined {
   if (typeof value !== 'number' && typeof value !== 'string') return undefined
+  if (typeof value === 'string' && value.trim().length === 0) return undefined
   const parsed = Number(value)
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined
 }

@@ -151,6 +151,18 @@ describe('server plugin', () => {
                 ])
               )
             }
+            if (request.url.includes('/api/usage/cost-by-day')) {
+              return Promise.resolve(
+                Response.json([
+                  {
+                    date: '2026-10-01',
+                    totalRequests: 2,
+                    totalTokens: 10,
+                    totalCostMicroCents: 250_000_000,
+                  },
+                ])
+              )
+            }
             return Promise.resolve(
               Response.json({
                 totalRequests: 2,
@@ -173,7 +185,7 @@ describe('server plugin', () => {
       'https://opencode.ai/console/api/user',
       'https://opencode.ai/console/api/orgs',
       'https://opencode.ai/console/api/usage/summary',
-      'https://opencode.ai/console/api/usage/summary',
+      'https://opencode.ai/console/api/usage/cost-by-day',
     ])
     expect(requests.map(({ headers }) => headers.get('x-org-id'))).toEqual([
       'org_selected',
@@ -254,6 +266,9 @@ describe('server plugin', () => {
                   { id: 'org_home', name: 'Home' },
                 ])
               )
+            }
+            if (String(url).includes('/api/usage/cost-by-day')) {
+              return Promise.resolve(Response.json([]))
             }
             return Promise.resolve(Response.json({ totalRequests: 1 }))
           },

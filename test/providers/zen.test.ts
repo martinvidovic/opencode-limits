@@ -24,8 +24,19 @@ describe('OpenCode Zen Provider Adapter', () => {
             { id: 'organization-canary', name: 'Acme Engineering' },
           ]
         }
+        if (input.path.includes('/api/usage/cost-by-day?')) {
+          json = [
+            dailyUsage('2026-09-30', 12_000_000, 10, 200_000),
+            dailyUsage('2026-10-01', 105_000_000, 63, 1_970_911),
+          ]
+        }
         if (input.path.includes('since=')) {
-          json = usageFixture(38.2, 1_400, 31_800_000)
+          json = {
+            totalRequests: 0,
+            totalInputTokens: 0,
+            totalOutputTokens: 0,
+            totalCostMicroCents: 0,
+          }
         }
         return Promise.resolve({ status: 'response', statusCode: 200, json })
       },
@@ -33,7 +44,7 @@ describe('OpenCode Zen Provider Adapter', () => {
 
     await expect(
       createZenAdapter({
-        now: () => new Date('2026-08-06T08:00:00.000Z'),
+        now: () => new Date('2026-10-05T08:00:00.000Z'),
       }).load({
         credential,
         requester,
@@ -50,7 +61,7 @@ describe('OpenCode Zen Provider Adapter', () => {
         meters: [],
         periods: [
           period('Today', 1.84, 42, 1_200_000),
-          period('August', 38.2, 1_400, 31_800_000),
+          period('October', 1.05, 63, 1_970_911),
         ],
       },
     })
@@ -58,7 +69,7 @@ describe('OpenCode Zen Provider Adapter', () => {
       '/api/user',
       '/api/orgs',
       '/api/usage/summary?userId=user-canary&range=24h',
-      '/api/usage/summary?userId=user-canary&since=2026-08-01T00%3A00%3A00.000Z',
+      '/api/usage/cost-by-day?userId=user-canary&range=30d&bucket=day',
     ])
     expect(requests).toEqual(
       requests.map((request) => ({
@@ -81,8 +92,8 @@ describe('OpenCode Zen Provider Adapter', () => {
         if (input.path === '/api/orgs') {
           json = [{ id: 'organization-canary', name: 'Acme Engineering' }]
         }
-        if (input.path.includes('since=')) {
-          json = { totalCostMicroCents: '287000000' }
+        if (input.path.includes('/api/usage/cost-by-day?')) {
+          json = [dailyUsage('2026-08-01', 287_000_000, 0, 0)]
         }
         return Promise.resolve({ status: 'response', statusCode: 200, json })
       },
@@ -144,6 +155,124 @@ describe('OpenCode Zen Provider Adapter', () => {
     })
   })
 
+  it('uses all daily history on UTC day 31 and includes day one only for this month', async () => {
+    const rows = [
+      dailyUsage('2026-09-30', 900_000_000, 90, 900),
+      dailyUsage('2026-10-01', 100_000_000, 2, 20),
+      dailyUsage('2026-10-31', 200_000_000, 3, 30),
+    ]
+    const result = await createZenAdapter({
+      now: () => new Date('2026-10-31T23:59:00.000Z'),
+    }).load({
+      credential,
+      requester: dailyRequester(rows, {
+        totalRequests: 0,
+        totalInputTokens: 0,
+        totalOutputTokens: 0,
+        totalCostMicroCents: 0,
+      }),
+      signal: new AbortController().signal,
+    })
+
+    expect(result).toMatchObject({
+      status: 'success',
+      snapshot: {
+        periods: [period('Today', 0, 0, 0), period('October', 3, 5, 50)],
+      },
+    })
+  })
+
+  it('rejects malformed daily usage rows', async () => {
+    const requester = dailyRequester([
+      {
+        date: '2026-10-01',
+        totalRequests: -1,
+        totalTokens: 1,
+        totalCostMicroCents: 1,
+      },
+    ])
+    await expect(
+      createZenAdapter({
+        now: () => new Date('2026-10-05T08:00:00.000Z'),
+      }).load({
+        credential,
+        requester,
+        signal: new AbortController().signal,
+      })
+    ).resolves.toMatchObject({
+      status: 'failure',
+      failure: { code: 'invalid-response' },
+    })
+  })
+
+  it('rejects blank daily numeric values', async () => {
+    const requester = dailyRequester([
+      {
+        date: '2026-10-01',
+        totalRequests: ' ',
+        totalTokens: 1,
+        totalCostMicroCents: 1,
+      },
+    ])
+
+    await expect(
+      createZenAdapter({
+        now: () => new Date('2026-10-05T08:00:00.000Z'),
+      }).load({
+        credential,
+        requester,
+        signal: new AbortController().signal,
+      })
+    ).resolves.toMatchObject({
+      status: 'failure',
+      failure: { code: 'invalid-response' },
+    })
+  })
+
+  it('accepts an empty daily usage array as zero', async () => {
+    const result = await createZenAdapter({
+      now: () => new Date('2026-10-05T08:00:00.000Z'),
+    }).load({
+      credential,
+      requester: dailyRequester([]),
+      signal: new AbortController().signal,
+    })
+
+    expect(result).toMatchObject({
+      status: 'success',
+      snapshot: {
+        periods: [period('Today', 0.01, 1, 200), period('October', 0, 0, 0)],
+      },
+    })
+  })
+
+  it('rejects a non-array daily usage response', async () => {
+    const requester: SafeRequester = {
+      requestJson: (input) => {
+        let json: unknown = usageFixture(0.01, 1, 200)
+        if (input.path === '/api/user') json = { id: 'user-canary' }
+        if (input.path === '/api/orgs') {
+          json = [{ id: 'organization-canary', name: 'Acme Engineering' }]
+        }
+        if (input.path.includes('/api/usage/cost-by-day?')) json = { rows: [] }
+        return Promise.resolve({ status: 'response', statusCode: 200, json })
+      },
+    }
+
+    await expect(
+      createZenAdapter({
+        now: () => new Date('2026-10-05T08:00:00.000Z'),
+      }).load({
+        credential,
+        requester,
+        signal: new AbortController().signal,
+      })
+    ).resolves.toMatchObject({
+      status: 'failure',
+      failure: { code: 'invalid-response' },
+    })
+  })
+
   it('renders the normalized Today and 30 days summaries', () => {
     expect(
       renderLimits({
@@ -188,6 +317,23 @@ function response(
   }
 }
 
+function dailyRequester(
+  daily: unknown,
+  today: unknown = usageFixture(0.01, 1, 200)
+): SafeRequester {
+  return {
+    requestJson: ({ path }) => {
+      let json: unknown = today
+      if (path === '/api/user') json = { id: 'user-canary' }
+      if (path === '/api/orgs') {
+        json = [{ id: 'organization-canary', name: 'Acme Engineering' }]
+      }
+      if (path.includes('/api/usage/cost-by-day?')) json = daily
+      return Promise.resolve({ status: 'response', statusCode: 200, json })
+    },
+  }
+}
+
 function period(label: string, cost: number, requests: number, tokens: number) {
   return {
     label,
@@ -209,4 +355,13 @@ function usageFixture(cost: number, requests: number, tokens: number) {
     totalCacheWrite1hTokens: '10',
     totalCostMicroCents: String(cost * 100_000_000),
   }
+}
+
+function dailyUsage(
+  date: string,
+  totalCostMicroCents: number,
+  totalRequests: number,
+  totalTokens: number
+) {
+  return { date, totalCostMicroCents, totalRequests, totalTokens }
 }

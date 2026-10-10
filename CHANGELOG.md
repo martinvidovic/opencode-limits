@@ -15,6 +15,12 @@ Versioning.
 
 ## [Unreleased]
 
+### Fixed
+
+- Derive OpenCode Zen month-to-date usage from daily buckets instead of the
+  Console API's broken `since` filter. On UTC day 31, the all-history response
+  remains subject to the safe requester's existing size and timeout bounds.
+
 ### Changed
 
 - **Breaking:** target OpenCode v2 only. The package now exports a v2 server
